@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// JSON columns are stored as String and parsed with Zod at the edge (portable to PostgreSQL).
+model Workflow {
+  id              String   @id @default(cuid())
+  name            String
+  task            String
+  startUrl        String
+  allowedPrefixes String
+  inputs          String
+  steps           String
+  planNotes       String   @default("")
+  planMeta        String   @default("{}") // model usage, tool trace, warnings
+  status          String   @default("needs_approval") // needs_approval | approved | rejected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  runs            Run[]
+}
+
+model Run {
+  id         String    @id @default(cuid())
+  workflowId String
+  workflow   Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status     String    @default("queued") // queued | running | succeeded | failed | cancelled
+  inputs     String
+  log        String    @default("[]")
+  checks     String    @default("[]")
+  error      String?
+  csvFile    String?
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+}

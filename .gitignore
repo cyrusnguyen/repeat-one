@@ -34,3 +34,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# app data (sqlite db, run artifacts)
+/data/
+/test-results/
+/playwright-report/
