@@ -1,18 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { parseCsv } from "../src/lib/checks";
-import { expectedUnpaid } from "./helpers";
+import { expectedUnpaid, hasModelKey } from "./helpers";
 
 // Live Opus planning. Runs only when the server has a key (the app reads .env itself).
-function envHasKey() {
-  try {
-    return /^ANTHROPIC_API_KEY=[ \t]*\S+/m.test(readFileSync(".env", "utf8"));
-  } catch {
-    return false;
-  }
-}
-const hasKey = envHasKey() || !!process.env.ANTHROPIC_API_KEY;
+
+const hasKey = hasModelKey();
 
 test("describe, Opus inspects the real page, approve, run, replay with new input", async ({ page }) => {
   test.skip(!hasKey, "ANTHROPIC_API_KEY not configured; live planning not exercised");

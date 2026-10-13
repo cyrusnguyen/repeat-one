@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { readFileSync } from "node:fs";
+import { canonicalSteps as sharedCanonicalSteps } from "../src/lib/demo-portal";
 import type { Step } from "../src/lib/schemas";
 
 import { test } from "@playwright/test";
@@ -8,21 +10,15 @@ export const db = new PrismaClient();
 test.afterAll(() => db.$disconnect());
 export const DEMO = "http://localhost:3100/demo/invoices";
 
-/** The plan Opus is expected to produce for the canonical demo; used where a live model is not required. */
-export const canonicalSteps: Step[] = [
-  { action: "navigate", url: DEMO, description: "Open the invoice dashboard" },
-  { action: "assert", check: { type: "visible", selector: "#invoice-table" }, description: "Invoice table is shown" },
-  { action: "select", selector: "#status-filter", value: "Unpaid", description: "Show only unpaid invoices" },
-  { action: "fill", selector: "#min-amount", value: "{{minimumAmount}}", description: "Set the minimum amount" },
-  { action: "click", selector: "#apply-filters", description: "Apply the filters" },
-  { action: "wait", selector: "#result-count", text: "Showing", description: "Wait for filtered results" },
-  { action: "extract", selector: "#invoice-table", description: "Read the filtered table" },
-  { action: "download", selector: "#export-csv", description: "Export the visible rows as CSV" },
-  { action: "screenshot", description: "Capture the filtered result" },
-  { action: "assert", check: { type: "everyRow", source: "table", column: "Status", op: "eq", value: "Unpaid" }, description: "Every row is unpaid" },
-  { action: "assert", check: { type: "everyRow", source: "csv", column: "Amount", op: "gte", value: "{{minimumAmount}}" }, description: "Every exported amount meets the minimum" },
-  { action: "assert", check: { type: "csvMatchesTable" }, description: "CSV matches the rows on the page" },
-];
+export const canonicalSteps: Step[] = sharedCanonicalSteps(DEMO);
+
+/** Live-model tests run only when the app's .env (or the environment) has a key. */
+export function hasModelKey(): boolean {
+  try {
+    if (/^ANTHROPIC_API_KEY=\S/m.test(readFileSync(".env", "utf8"))) return true;
+  } catch {}
+  return !!process.env.ANTHROPIC_API_KEY;
+}
 
 export async function seedWorkflow(name: string, steps: Step[], status = "needs_approval", recoveryPolicy = "auto_safe") {
   const wf = await db.workflow.create({

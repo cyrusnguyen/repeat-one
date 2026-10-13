@@ -22,8 +22,8 @@
 ## Verification
 - [x] Unit: state transitions, safety, checks, schemas (24 tests)
 - [x] Integration, real Chromium + scripted proposer: auto repair, approval, rejection, destructive/stale/invalid proposals, budget exhausted, unrecoverable, no-key (9 tests)
-- [x] E2E, real app + Chromium: approve -> run -> CSV -> reload -> replay; duplicate submit; rejected plan; blocked origin/link/redirect; destructive click; failed postcondition; cancel; form errors; changed UI without key; export removed (14 pass)
+- [x] E2E, real app + Chromium: approve -> run -> CSV -> reload -> replay; duplicate submit; rejected plan; blocked origin/link/redirect; destructive click; failed postcondition; cancel; form errors; changed UI without key; export removed (15 pass, incl. CSRF guard)
 - [!] E2E with live Opus: planning + recovery (2 tests skip; needs `ANTHROPIC_API_KEY` in `.env`) [4.1, 4.3, 4.6]
 - [!] Prompt-injection check against live Opus [4.5] (tool-level blocking verified; model behaviour not)
 - [x] README: setup, architecture, env, limitations, demo reset, 2-minute demo script
-- [ ] Ponytail review, fixes re-tested
+- [x] Ponytail review: 5 findings fixed (JSON guard on cancel/re-plan, observe redaction, shared test plan, CSRF test, sidebar reconcile); gate re-run green

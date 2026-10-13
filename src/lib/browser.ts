@@ -180,5 +180,6 @@ export async function observe(s: Session) {
     const headings = Array.from(document.querySelectorAll("h1, h2, h3, [aria-live]")).slice(0, 10).map((h) => ({ selector: sel(h), text: clip((h as HTMLElement).innerText, 100) }));
     return { title: document.title, headings, controls, tables, visibleText: clip(document.body.innerText, 1500) };
   });
-  return JSON.parse(redact(JSON.stringify({ url: s.page.url(), ...snapshot })));
+  // Redact each string value; redacting serialized JSON can swallow quotes and break parsing.
+  return JSON.parse(JSON.stringify({ url: s.page.url(), ...snapshot }, (_k, v) => (typeof v === "string" ? redact(v) : v)));
 }

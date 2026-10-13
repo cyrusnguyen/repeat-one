@@ -100,3 +100,12 @@ test("create form rejects bad input with actionable messages and plans nothing",
   await page.getByRole("button", { name: /Inspect page/ }).click();
   await expect(page.locator(".callout[role=alert]")).toContainText("Describe the task");
 });
+
+test("state-changing endpoints refuse non-JSON (cross-site form) requests", async ({ request }) => {
+  const id = await seedWorkflow("CSRF guard", canonicalSteps, "approved");
+  const form = { headers: { "content-type": "text/plain" }, data: "x" };
+  for (const url of [`/api/workflows/${id}/runs`, `/api/workflows/${id}/plan`, `/api/workflows/${id}/approval`, "/api/runs/anything/cancel", "/api/demo/variant"]) {
+    expect((await request.post(url, form)).status(), url).toBe(415);
+  }
+  expect(await db.run.count({ where: { workflowId: id } })).toBe(0);
+});

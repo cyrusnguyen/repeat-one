@@ -2,6 +2,8 @@
  * Demo-only invoice portal fixture. The variant changes markup (ids, labels, structure) but never the
  * business data or filtering semantics, so a correct workflow yields the same CSV in "classic" and "redesigned".
  */
+import type { Step } from "./schemas";
+
 export const VARIANTS = ["classic", "redesigned", "export_removed"] as const;
 export type Variant = (typeof VARIANTS)[number];
 
@@ -177,3 +179,19 @@ export function renderPortal(variant: Variant): string {
 </body>
 </html>`;
 }
+
+/** The plan Opus is expected to produce for the canonical demo; shared by the engine and E2E tests. */
+export const canonicalSteps = (demoUrl: string): Step[] => [
+  { action: "navigate", url: demoUrl, description: "Open the invoice portal" },
+  { action: "assert", check: { type: "visible", selector: "#invoice-table" }, description: "Invoice table is shown" },
+  { action: "select", selector: "#status-filter", value: "Unpaid", description: "Show only unpaid invoices" },
+  { action: "fill", selector: "#min-amount", value: "{{minimumAmount}}", description: "Set the minimum amount" },
+  { action: "click", selector: "#apply-filters", description: "Apply the filters" },
+  { action: "wait", selector: "#result-count", text: "Showing", description: "Wait for filtered results" },
+  { action: "extract", selector: "#invoice-table", description: "Read the filtered table" },
+  { action: "download", selector: "#export-csv", description: "Export the visible rows as CSV" },
+  { action: "screenshot", description: "Capture the filtered result" },
+  { action: "assert", check: { type: "everyRow", source: "table", column: "Status", op: "eq", value: "Unpaid" }, description: "Every row is unpaid" },
+  { action: "assert", check: { type: "everyRow", source: "csv", column: "Amount", op: "gte", value: "{{minimumAmount}}" }, description: "Every exported amount meets the minimum" },
+  { action: "assert", check: { type: "csvMatchesTable" }, description: "CSV matches the rows on the page" },
+];

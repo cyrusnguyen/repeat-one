@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { handle, HttpError, type Ctx } from "@/lib/http";
+import { handle, HttpError, readJson, type Ctx } from "@/lib/http";
 import { planWorkflow } from "@/lib/planner";
 import { globalPrefixes, isUrlAllowed } from "@/lib/safety";
 import { InputDef } from "@/lib/schemas";
@@ -7,7 +7,8 @@ import { loadWorkflow } from "@/lib/store";
 import { z } from "zod";
 
 /** Re-plan against the current page. The new plan replaces the steps and must be approved again. */
-export const POST = handle(async (_req: Request, { params }: Ctx<{ id: string }>) => {
+export const POST = handle(async (req: Request, { params }: Ctx<{ id: string }>) => {
+  await readJson(req);
   const { id } = await params;
   const row = await loadWorkflow(id);
   const inputs = z.array(InputDef).parse(JSON.parse(row.inputs));

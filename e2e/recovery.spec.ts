@@ -1,17 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { parseCsv } from "../src/lib/checks";
-import { canonicalSteps, db, DEMO, expectedUnpaid, seedWorkflow, setVariant } from "./helpers";
+import { canonicalSteps, db, DEMO, expectedUnpaid, hasModelKey, seedWorkflow, setVariant } from "./helpers";
 
-function keyConfigured() {
-  try {
-    return /^ANTHROPIC_API_KEY=[ \t]*\S+/m.test(readFileSync(".env", "utf8")) || !!process.env.ANTHROPIC_API_KEY;
-  } catch {
-    return !!process.env.ANTHROPIC_API_KEY;
-  }
-}
-const hasKey = keyConfigured();
+const hasKey = hasModelKey();
 
 test.beforeEach(async ({ request }) => setVariant(request, "classic"));
 

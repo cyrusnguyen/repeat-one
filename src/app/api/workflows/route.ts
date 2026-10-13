@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { handle, HttpError, readJson } from "@/lib/http";
+import { reconcileRun } from "@/lib/runner";
 import { planWorkflow } from "@/lib/planner";
 import { globalPrefixes, isUrlAllowed } from "@/lib/safety";
 import { CreateWorkflow } from "@/lib/schemas";
@@ -7,9 +8,9 @@ import { CreateWorkflow } from "@/lib/schemas";
 export const GET = handle(async () => {
   const rows = await db.workflow.findMany({
     orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true, status: true, updatedAt: true, runs: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true } } },
+    select: { id: true, name: true, status: true, updatedAt: true, runs: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true } } },
   });
-  return rows.map(({ runs, ...w }) => ({ ...w, lastRunStatus: runs[0]?.status ?? null }));
+  return Promise.all(rows.map(async ({ runs, ...w }) => ({ ...w, lastRunStatus: runs[0] ? (await reconcileRun(runs[0])).status : null })));
 });
 
 /** Validate → let Opus inspect the real page and propose → persist as needs_approval. Nothing runs here. */

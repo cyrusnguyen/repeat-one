@@ -9,7 +9,7 @@ import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "./db";
-import { expectedUnpaid, renderPortal, setVariant, type Variant } from "./demo-portal";
+import { canonicalSteps, expectedUnpaid, renderPortal, setVariant, type Variant } from "./demo-portal";
 import { parseCsv } from "./checks";
 import type { Proposer } from "./recovery";
 import { ARTIFACT_ROOT, decideRepairManually, RunConflict, startRun, StaleDecision } from "./runner";
@@ -37,20 +37,7 @@ beforeEach(() => {
   delete process.env.ANTHROPIC_API_KEY;
 });
 
-const steps = (): Step[] => [
-  { action: "navigate", url: DEMO, description: "Open the invoice portal" },
-  { action: "assert", check: { type: "visible", selector: "#invoice-table" }, description: "Invoice table is shown" },
-  { action: "select", selector: "#status-filter", value: "Unpaid", description: "Show only unpaid invoices" },
-  { action: "fill", selector: "#min-amount", value: "{{minimumAmount}}", description: "Set the minimum amount" },
-  { action: "click", selector: "#apply-filters", description: "Apply the filters" },
-  { action: "wait", selector: "#result-count", text: "Showing", description: "Wait for filtered results" },
-  { action: "extract", selector: "#invoice-table", description: "Read the filtered table" },
-  { action: "download", selector: "#export-csv", description: "Export the visible rows" },
-  { action: "screenshot", description: "Capture the result" },
-  { action: "assert", check: { type: "everyRow", source: "table", column: "Status", op: "eq", value: "Unpaid" }, description: "Every row is unpaid" },
-  { action: "assert", check: { type: "everyRow", source: "csv", column: "Amount", op: "gte", value: "{{minimumAmount}}" }, description: "Every exported amount meets the minimum" },
-  { action: "assert", check: { type: "csvMatchesTable" }, description: "CSV matches the page" },
-];
+const steps = (): Step[] => canonicalSteps(DEMO);
 
 async function seed(policy: "auto_safe" | "ask" = "auto_safe", s: Step[] = steps()) {
   const wf = await db.workflow.create({
