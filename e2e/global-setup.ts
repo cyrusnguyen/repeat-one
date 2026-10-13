@@ -7,6 +7,10 @@ const PORT = 3100;
 // The E2E database is disposable, and the app server is managed here rather than by Playwright's
 // webServer, whose shutdown hangs for minutes on Windows. Returning a function makes it the teardown.
 export default async function globalSetup() {
+  // A server already on the port would be tested instead of ours, against the wrong database.
+  if (await fetch(`http://localhost:${PORT}/api/config`).then(() => true, () => false)) {
+    throw new Error(`Port ${PORT} is already in use. Stop that server before running E2E.`);
+  }
   rmSync("data/e2e.db", { force: true });
   execSync("npx --no-install prisma db push --skip-generate", { stdio: "ignore", env: process.env });
 

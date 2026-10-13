@@ -28,3 +28,9 @@
 - [x] Prompt-injection check against live Opus [4.5] (demo walkthrough: model ignored the injected instruction and flagged it)
 - [x] README: setup, architecture, env, limitations, demo reset, 2-minute demo script
 - [x] Ponytail review: 5 findings fixed (JSON guard on cancel/re-plan, observe redaction, shared test plan, CSRF test, sidebar reconcile); gate re-run green
+
+## UI redesign
+- [x] Warm black + amber palette, one top bar, centred column, at most one gold button per screen
+- [x] Home, Create, Workflow review/run bar, Run story with stage strip and evidence drawer
+- [x] View logic unit-tested (18 tests); E2E updated (16 pass, 2 live skipped); screens checked at 1440 and 760 px, no console errors
+- [x] E2E refuses to start if port 3100 is already taken (prevents testing the wrong server)

@@ -21,7 +21,7 @@ test("a rejected plan never runs", async ({ page, request }) => {
   await page.goto(`/workflows/${id}`);
   await page.getByRole("button", { name: "Reject" }).click();
   await expect(page.getByText("Plan rejected. It will not run.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toHaveCount(0);
   const res = await request.post(`/api/workflows/${id}/runs`, { data: { inputs: {} } });
   expect(res.status()).toBe(400);
   expect((await res.json()).error).toMatch(/not been approved/);
@@ -69,7 +69,10 @@ test("a changed page fails with an explanation and offers re-plan", async ({ pag
   await page.goto(`/runs/${runId}`);
   await expect(page.getByText("attempt 1 failed: Element not found: #renamed-button")).toBeVisible();
   await expect(page.getByRole("link", { name: /Review \/ re-plan/ })).toBeVisible();
-  await expect(page.getByAltText("Final page state")).toBeVisible();
+  await page.getByRole("button", { name: /^Step 2: / }).click();
+  const drawer = page.getByRole("dialog", { name: "Evidence" });
+  await drawer.getByRole("tab", { name: "Page" }).click();
+  await expect(drawer.getByAltText("Final page state")).toBeVisible();
 });
 
 test("a failed postcondition is a failed run, not a success", async ({ request }) => {
@@ -92,7 +95,7 @@ test("a running workflow can be cancelled", async ({ page, request }) => {
   await page.goto(`/runs/${runId}`);
   await page.getByRole("button", { name: "Cancel run" }).click();
   await expect(page.getByText("Cancelled by user.")).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator(".tag.cancelled").first()).toBeVisible();
+  await expect(page.locator(".pill.cancelled").first()).toBeVisible();
 });
 
 test("create form rejects bad input with actionable messages and plans nothing", async ({ page }) => {
@@ -104,11 +107,11 @@ test("create form rejects bad input with actionable messages and plans nothing",
     ["file:///C:/Windows/win.ini", /Start URL is not allowed/],
   ] as const) {
     await page.getByLabel("Starting URL").fill(url);
-    await page.getByRole("button", { name: /Inspect page/ }).click();
+    await page.getByRole("button", { name: "Propose a plan" }).click();
     await expect(page.locator(".callout[role=alert]")).toContainText(message);
   }
   await page.getByLabel("What should happen?").fill("");
-  await page.getByRole("button", { name: /Inspect page/ }).click();
+  await page.getByRole("button", { name: "Propose a plan" }).click();
   await expect(page.locator(".callout[role=alert]")).toContainText("Describe the task");
 });
 
@@ -124,13 +127,13 @@ test("state-changing endpoints refuse non-JSON (cross-site form) requests", asyn
 test("preview shows targets on the live page before approval and runs nothing", async ({ page }) => {
   const id = await seedWorkflow("Preview before approval", canonicalSteps);
   await page.goto(`/workflows/${id}`);
-  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Preview" }).click();
   const panel = page.getByLabel("Preview");
   await expect(panel.getByText("Preview on the live page")).toBeVisible({ timeout: 30_000 });
   await expect(panel.getByAltText("Preview of step 4")).toBeVisible();
-  await expect(panel.locator(".tag.found").first()).toBeVisible();
+  await expect(panel.locator(".pill.found").first()).toBeVisible();
   // Still unapproved, still no runs.
-  await expect(page.getByText("Approval required.")).toBeVisible();
+  await expect(page.getByText("Approve this plan to run it.")).toBeVisible();
   expect(await db.run.count({ where: { workflowId: id } })).toBe(0);
 });

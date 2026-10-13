@@ -4,6 +4,24 @@ Describe a recurring browser task once. Opus inspects the real page and proposes
 
 This is a **local, single-user Build Day demo**. It has not been reviewed for automating authenticated or third-party websites.
 
+## Screenshots
+
+**Run repaired after a UI change.** The saved plan failed on the redesigned portal, Opus proposed new targets, one repair was applied automatically and one was approved by a person, and every original check passed. The evidence drawer shows the failure, the screenshot, the proposed change and why it was allowed.
+
+![Run repaired and verified, with the evidence drawer open](docs/screenshots/run-repaired-drawer.png)
+
+**Plan review before approval.** Nothing runs until the plan is approved. "Success means" lists the checks a run must pass; Preview shows each target on the live page without clicking.
+
+![Plan review with the approval bar](docs/screenshots/plan-review.png)
+
+**Safe stop.** With the export control removed, Opus finds no safe equivalent (and ignores the injected instruction on the page), so the run stops instead of guessing.
+
+![Run stopped safely](docs/screenshots/run-safe-stop.png)
+
+**Workflows.** Each saved workflow with its last outcome.
+
+![Workflows list](docs/screenshots/workflows.png)
+
 ## Prerequisites
 
 - Node.js 22+ (tested on 24.21)
@@ -77,16 +95,5 @@ Security notes:
 - Process-crash continuation is **not** implemented. A run whose worker vanished is reported as failed ("Interrupted") on the next read, with steps up to the last checkpoint verified. A retry is a new run. There is no exactly-once guarantee for arbitrary websites; MVP workflows are read/filter/export only.
 - One active run per workflow, enforced in-process (single local Node process).
 - Planning is a synchronous request (typically under a minute). The UI shows elapsed time but not streamed progress.
-
-## Two-minute demo script
-
-Before you start: `.env` has a key, the app runs on `http://localhost:3000`, and the top bar shows **Demo portal UI: Classic**.
-
-1. **(0:00) Plan.** Click **New**, then **Use demo example** (task "Export unpaid invoices above a minimum amount to CSV", input `minimumAmount` = 1000). Click **Inspect page & propose plan**. Opus loads the real portal and proposes steps. Point out the "What Opus looked at" trace, the steps, and **Success means** (the assertions). Click **Preview** to see each step's target highlighted on the live page; it is read-only, so nothing runs before approval.
-2. **(0:30) Approve and run.** Click **Approve plan**, then **Run workflow** with 1000. Watch the timeline fill in. The run succeeds with every check passing, a screenshot, and a 9-row CSV. Click **Download CSV**.
-3. **(0:55) Break the UI.** In the top bar switch **Demo portal UI** to **Redesigned**. Open the portal in a tab to show the amount field and button were renamed and restructured.
-4. **(1:05) Replay with recovery.** Back on the workflow, set `minimumAmount` to 3000 and click **Run again**. Step 4 fails for real ("Element not found: #min-amount", with a failure screenshot). The status goes to **recovering**. Opus proposes `#amount-floor` and the engine auto-applies it (read-only fill). Step 5 fails next. Opus proposes `#refresh-results`, and because it is a click the run pauses in **needs approval**. Show before/after selectors, rationale, engine checks and policy reason, then click **Approve repair**.
-5. **(1:35) Verified result.** The run finishes "including 2 repaired steps" with all original checks passing and a 4-row CSV. Refresh the page: status, repairs and evidence all come from the database. Both runs remain in the history.
-6. **(1:45) Safe stop.** Switch to **Export removed** and click **Run again**. The export step fails, Opus finds no equivalent control, and the run ends **failed**: "Recovery stopped safely". No CSV is produced and nothing is guessed.
 
 Without a key, steps 1 and 4 cannot use Opus. Recovery then fails truthfully with "ANTHROPIC_API_KEY is not set". The E2E suite covers that path too.

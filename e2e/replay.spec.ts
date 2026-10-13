@@ -9,7 +9,7 @@ async function runAndWait(page: Page, button: RegExp, amount: string) {
   await page.locator('input[name="minimumAmount"]').fill(amount);
   await page.getByRole("button", { name: button }).click();
   await page.waitForURL(/\/runs\//);
-  await expect(page.getByText(/All steps completed and \d+ verification checks? passed/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { level: 1, name: /Verified/ })).toBeVisible({ timeout: 60_000 });
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Download CSV" }).click()]);
   return parseCsv(await readFile(await download.path(), "utf8"));
 }
@@ -19,8 +19,8 @@ test("approve, run, verify CSV, reload, replay with a new threshold, keep both r
   await page.goto(`/workflows/${id}`);
 
   // Unapproved plans cannot run.
-  await expect(page.getByText("Approval required.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await expect(page.getByText("Approve this plan to run it.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Approve plan" }).click();
   await expect(page.getByRole("button", { name: /Run workflow/ })).toBeEnabled();
 
@@ -32,14 +32,23 @@ test("approve, run, verify CSV, reload, replay with a new threshold, keep both r
   const firstRunUrl = page.url();
 
   // Evidence: a real screenshot rendered from the run.
-  const shot = page.getByAltText("Screenshot after step 9");
+  // Evidence lives in the drawer: open the screenshot step.
+  const stepButton = page.getByRole("button", { name: "Step 9: Capture the filtered result" });
+  await stepButton.click();
+  const drawer = page.getByRole("dialog", { name: "Evidence" });
+  await drawer.getByRole("tab", { name: "Page" }).click();
+  const shot = drawer.getByAltText("Screenshot after step 9");
   await expect(shot).toBeVisible();
   expect(await shot.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(100);
+  // Keyboard: Escape closes the drawer and focus returns to the step that opened it.
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(stepButton).toBeFocused();
 
   // Reload the app, return to the saved workflow, change the input, replay.
   await page.reload();
-  await expect(page.getByText(/All steps completed/)).toBeVisible();
-  await page.getByRole("link", { name: "← Unpaid invoices export" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /Verified/ })).toBeVisible();
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Unpaid invoices export" }).click();
   await page.waitForURL(`**/workflows/${id}`);
   await page.reload();
   await expect(page.getByRole("button", { name: /Run again/ })).toBeEnabled();
@@ -50,11 +59,11 @@ test("approve, run, verify CSV, reload, replay with a new threshold, keep both r
 
   // Both runs are preserved with their own inputs and outcome.
   await page.goto(`/workflows/${id}`);
-  const history = page.locator("table.grid tbody tr");
+  const history = page.getByRole("list", { name: "Recent runs" }).getByRole("listitem");
   await expect(history).toHaveCount(2);
   await expect(history.nth(0)).toContainText("minimumAmount=3000");
   await expect(history.nth(1)).toContainText("minimumAmount=1000");
-  await expect(history.locator(".tag.succeeded")).toHaveCount(2);
+  await expect(history.locator(".pill.succeeded")).toHaveCount(2);
 
   // The first run's evidence was not overwritten by the replay.
   await page.goto(firstRunUrl);
