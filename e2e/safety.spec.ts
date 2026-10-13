@@ -69,7 +69,10 @@ test("a changed page fails with an explanation and offers re-plan", async ({ pag
   await page.goto(`/runs/${runId}`);
   await expect(page.getByText("attempt 1 failed: Element not found: #renamed-button")).toBeVisible();
   await expect(page.getByRole("link", { name: /Review \/ re-plan/ })).toBeVisible();
-  await expect(page.getByAltText("Final page state")).toBeVisible();
+  await page.getByRole("button", { name: /^Step 2: / }).click();
+  const drawer = page.getByRole("dialog", { name: "Evidence" });
+  await drawer.getByRole("tab", { name: "Page" }).click();
+  await expect(drawer.getByAltText("Final page state")).toBeVisible();
 });
 
 test("a failed postcondition is a failed run, not a success", async ({ request }) => {

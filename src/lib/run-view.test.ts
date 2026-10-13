@@ -75,4 +75,12 @@ describe("groupSteps", () => {
     expect(g.map((x) => (x.kind === "group" ? `${x.status}:${x.steps.length}` : `step:${x.step.index}`))).toEqual(["ok:2", "step:2", "step:3", "step:4", "skipped:3"]);
   });
   it("empty log", () => expect(groupSteps([])).toEqual([]));
+  it("a clean finished run shows every step, so the story is not one folded card", () => {
+    const g = groupSteps([step(0, "ok"), step(1, "ok"), step(2, "ok")]);
+    expect(g.map((x) => x.kind)).toEqual(["step", "step", "step"]);
+  });
+  it("a running run still folds the steps not started yet", () => {
+    const g = groupSteps([step(0, "ok"), step(1, "running"), step(2, "pending"), step(3, "pending")]);
+    expect(g.map((x) => (x.kind === "group" ? `${x.status}:${x.steps.length}` : `step:${x.step.index}`))).toEqual(["step:0", "step:1", "pending:2"]);
+  });
 });

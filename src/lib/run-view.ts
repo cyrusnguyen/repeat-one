@@ -70,8 +70,11 @@ export function runStages(r: RunView, version: number): Stage[] {
 
 /** Fold consecutive uneventful steps; anything that failed, was repaired or is running stays on its own. */
 export function groupSteps(log: StepLog[]): StepGroup[] {
+  // With nothing eventful, folding would collapse the whole story into one card.
+  const eventful = log.some((l) => l.failures.length || l.repairedSelector || l.status === "running" || l.status === "failed");
+  if (!eventful) return log.map((step) => ({ kind: "step", step }));
   const out: StepGroup[] = [];
-  const quiet = (l: StepLog) => (l.status === "ok" && !l.failures.length && !l.repairedSelector) || l.status === "skipped" || l.status === "pending";
+  const quiet =(l: StepLog) => (l.status === "ok" && !l.failures.length && !l.repairedSelector) || l.status === "skipped" || l.status === "pending";
   for (const l of log) {
     const prev = out[out.length - 1];
     if (quiet(l) && prev?.kind === "group" && prev.status === l.status) prev.steps.push(l);

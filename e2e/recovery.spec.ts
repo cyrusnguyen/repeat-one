@@ -9,8 +9,10 @@ test.beforeEach(async ({ request }) => setVariant(request, "classic"));
 
 test("the variant toggle changes the real portal markup, not the data", async ({ page, request }) => {
   await page.goto("/");
-  await page.getByRole("group", { name: "Demo portal UI variant" }).getByRole("button", { name: "Redesigned" }).click();
-  await expect(page.getByRole("button", { name: "Redesigned" })).toHaveAttribute("aria-pressed", "true");
+  const variant = page.getByLabel("Demo portal UI variant");
+  await expect(variant).toBeEnabled();
+  await variant.selectOption("redesigned");
+  await expect.poll(async () => (await (await request.get("/api/demo/variant")).json()).variant).toBe("redesigned");
   const html = await (await request.get(DEMO)).text();
   expect(html).toContain('id="amount-floor"');
   expect(html).not.toContain('id="min-amount"');
