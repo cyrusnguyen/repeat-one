@@ -6,7 +6,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, CheckCircle2, Download, Loader2, RefreshCw, ShieldAlert, Square, Wrench, X, XCircle } from "lucide-react";
 import { api, duration, when } from "@/lib/client";
 import { parseCsv, type Table } from "@/lib/checks";
-import { StatusTag } from "@/components/StatusTag";
+import { StatusPill as StatusTag } from "@/components/StatusPill";
 import { isActive } from "@/lib/state";
 import type { CheckLog, StepLog } from "@/lib/store";
 

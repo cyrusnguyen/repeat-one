@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, Eye, Loader2, Pencil, Play, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import { api, duration, notifyWorkflowsChanged, when } from "@/lib/client";
-import { StatusTag } from "@/components/StatusTag";
+import { StatusPill as StatusTag } from "@/components/StatusPill";
 import { isActive } from "@/lib/state";
 import { stepTarget, type InputDef, type Step } from "@/lib/schemas";
 import type { PlanMeta } from "@/lib/planner";
