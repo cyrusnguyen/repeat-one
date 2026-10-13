@@ -1,28 +1,28 @@
-# RepeatOne - Build Day tasks
+# RepeatOne 2.0 - Build Day tasks
 
-Dependency order. `[x]` done and verified, `[~]` built but not verified, `[ ]` open, `[!]` blocked.
-Spec refs in brackets point at `RepeatOne_SPEC.md` §4.
+`[x]` done and verified, `[~]` built, not yet verified, `[ ]` open, `[!]` blocked. Refs point at `RepeatOne2_SPEC.md` §4.
 
-## Foundation
-- [ ] Scaffold Next.js (App Router, TS strict), pnpm, ESLint, Vitest, Playwright test, Prisma+SQLite, `.env.example`
-- [ ] Demo invoice dashboard fixture at `/demo/invoices.html` (deterministic data, marked as demo) [4.5]
+## Carried over from v1 (built, verify under v2)
+- [~] Next.js + pnpm + Prisma/SQLite + Zod + Vitest + Playwright scaffold; lint, typecheck, unit tests, build pass
+- [~] Opus planner over read-only tools, validated `propose_workflow`, plan approval gate [4.1]
+- [~] Browser tools with network-layer allowlist, destructive-label guard, password guard, redaction [4.5]
+- [~] Deterministic runner with assertions, CSV artifact, screenshots, cancel, timeout, max steps [4.2]
 
-## Core modules (interfaces)
-- [ ] `lib/schemas.ts` - Zod: inputs, steps, checks, workflow create; `{{input}}` templating [4.1]
-- [ ] `lib/safety.ts` - URL allowlist (prefix + scheme), destructive-label guard, redaction [4.4]
-- [ ] `lib/browser.ts` - isolated Chromium session, route-level origin blocking, tools: navigate/observe/click/fill/select/wait/extract/download/screenshot/assert [4.2]
-- [ ] `lib/planner.ts` - Opus 5.5 tool loop over read-only tools → `propose_workflow`; max model calls, cost ceiling, usage [4.1, 4.4]
-- [ ] `lib/runner.ts` - execute approved steps, postconditions, evidence, cancel, max steps, hard timeout, cleanup, one active run per workflow [4.2, 4.3, 4.5]
-
-## API + UI
-- [ ] API: workflows CRUD, plan/re-plan, approve/reject (server-enforced), runs, cancel, artifacts [4.1–4.3]
-- [ ] UI: workflow list (create/open/rename/delete), create form, review/approve, run panel with editable inputs, run detail with evidence/CSV/screenshots, all states [4.5, §3]
+## v2 vertical slice
+- [ ] Demo portal as server route with UI variants (classic / redesigned / export removed) + toggle API [4.3]
+- [ ] Typed run state machine incl. `recovering`, `needs_approval`; illegal transitions rejected in DB update [4.2]
+- [ ] Workflow versions + per-run definition snapshot; checkpoint row after each verified step [4.1, 4.4]
+- [ ] Step records: attempts, timestamps, observation, assertion, evidence id [4.2]
+- [ ] Recovery: locator failure -> bounded Opus proposal (selector only) -> engine validation -> policy (auto for read-only, ask for click/download) -> retry -> original assertions [4.3]
+- [ ] Repair records + approve/reject API (stale decisions rejected) + approval timeout [4.3, 4.4]
+- [ ] Budgets: max recovery attempts, max model calls / cost per run, observation size cap [4.2, 4.5]
+- [ ] UI: variant toggle, success criteria, recovery panel (failure, proposal, validation, decision, retry, result) [§3, 4.3]
 
 ## Verification
-- [ ] Unit tests: allowlist, templating/inputs, checks, CSV parse, redaction, destructive guard, schemas [4.6]
-- [ ] E2E (real Chromium): approve → run → verify CSV → reload → replay w/ new minimumAmount → both runs [4.6]
-- [ ] E2E negative: blocked origin does not execute; destructive click blocked; missing selector → truthful failure + re-plan [4.6]
-- [ ] E2E with live Opus planning (needs `ANTHROPIC_API_KEY`) [4.1]
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` pass
-- [ ] README: setup, architecture, env vars, limitations, 2-minute demo script [4.6]
-- [ ] Ponytail review pass; fixes re-tested
+- [ ] Unit: state transitions, repair validation/policy, budgets, plus existing safety/checks/schemas
+- [ ] Integration (real Chromium, scripted proposer, labeled): auto repair verified, invalid/stale proposal, budget exhausted
+- [ ] E2E: approve -> run -> CSV -> reload -> replay new input; rejected plan; unsafe origin/redirect; destructive click; unrecoverable stop
+- [!] E2E with live Opus: plan + recovery on redesigned UI (needs `ANTHROPIC_API_KEY`) [4.6]
+- [ ] Inspect rendered UI (console errors, contrast, dead controls)
+- [ ] README: setup, architecture, env, limitations, demo reset, 2-minute demo script
+- [ ] Ponytail review, fixes re-tested
