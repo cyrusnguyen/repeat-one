@@ -19,8 +19,8 @@ test("approve, run, verify CSV, reload, replay with a new threshold, keep both r
   await page.goto(`/workflows/${id}`);
 
   // Unapproved plans cannot run.
-  await expect(page.getByText("Approval required.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await expect(page.getByText("Approve this plan to run it.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Approve plan" }).click();
   await expect(page.getByRole("button", { name: /Run workflow/ })).toBeEnabled();
 
@@ -50,11 +50,11 @@ test("approve, run, verify CSV, reload, replay with a new threshold, keep both r
 
   // Both runs are preserved with their own inputs and outcome.
   await page.goto(`/workflows/${id}`);
-  const history = page.locator("table.grid tbody tr");
+  const history = page.getByRole("list", { name: "Recent runs" }).getByRole("listitem");
   await expect(history).toHaveCount(2);
   await expect(history.nth(0)).toContainText("minimumAmount=3000");
   await expect(history.nth(1)).toContainText("minimumAmount=1000");
-  await expect(history.locator(".tag.succeeded")).toHaveCount(2);
+  await expect(history.locator(".pill.succeeded")).toHaveCount(2);
 
   // The first run's evidence was not overwritten by the replay.
   await page.goto(firstRunUrl);

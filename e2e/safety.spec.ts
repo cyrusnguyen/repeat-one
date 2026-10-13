@@ -21,7 +21,7 @@ test("a rejected plan never runs", async ({ page, request }) => {
   await page.goto(`/workflows/${id}`);
   await page.getByRole("button", { name: "Reject" }).click();
   await expect(page.getByText("Plan rejected. It will not run.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toHaveCount(0);
   const res = await request.post(`/api/workflows/${id}/runs`, { data: { inputs: {} } });
   expect(res.status()).toBe(400);
   expect((await res.json()).error).toMatch(/not been approved/);
@@ -124,13 +124,13 @@ test("state-changing endpoints refuse non-JSON (cross-site form) requests", asyn
 test("preview shows targets on the live page before approval and runs nothing", async ({ page }) => {
   const id = await seedWorkflow("Preview before approval", canonicalSteps);
   await page.goto(`/workflows/${id}`);
-  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Preview" }).click();
   const panel = page.getByLabel("Preview");
   await expect(panel.getByText("Preview on the live page")).toBeVisible({ timeout: 30_000 });
   await expect(panel.getByAltText("Preview of step 4")).toBeVisible();
-  await expect(panel.locator(".tag.found").first()).toBeVisible();
+  await expect(panel.locator(".pill.found").first()).toBeVisible();
   // Still unapproved, still no runs.
-  await expect(page.getByText("Approval required.")).toBeVisible();
+  await expect(page.getByText("Approve this plan to run it.")).toBeVisible();
   expect(await db.run.count({ where: { workflowId: id } })).toBe(0);
 });

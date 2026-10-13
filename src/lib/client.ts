@@ -11,8 +11,6 @@ export async function api<T = unknown>(url: string, init?: { method?: string; bo
   return data as T;
 }
 
-export const notifyWorkflowsChanged = () => window.dispatchEvent(new Event("workflows-changed"));
-
 export function duration(start?: string | Date | null, end?: string | Date | null): string {
   if (!start) return "—";
   const ms = new Date(end ?? Date.now()).getTime() - new Date(start).getTime();

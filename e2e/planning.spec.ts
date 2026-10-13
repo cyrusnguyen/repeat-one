@@ -19,7 +19,7 @@ test("describe, Opus inspects the real page, approve, run, replay with new input
     if (await failed.isVisible()) throw new Error(`Planning failed: ${await failed.innerText()}`);
     expect(page.url()).toMatch(/\/workflows\/(?!new)/);
   }).toPass({ timeout: 420_000, intervals: [1000] });
-  await expect(page.getByText("Approval required.")).toBeVisible();
+  await expect(page.getByText("Approve this plan to run it.")).toBeVisible();
   await page.getByRole("button", { name: "Approve plan" }).click();
   const workflowUrl = page.url();
 
