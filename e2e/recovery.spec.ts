@@ -38,8 +38,10 @@ test("changed UI without a model key: real failure first, then a truthful stop (
   await page.waitForURL(/\/runs\//);
   await expect(page.locator(".callout[role=alert]")).toContainText("Recovery could not run: ANTHROPIC_API_KEY is not set", { timeout: 30_000 });
   await expect(page.getByText("attempt 1 failed: Element not found: #min-amount")).toBeVisible();
-  await expect(page.getByLabel("Recovery").getByText("error", { exact: true })).toBeVisible();
-  await expect(page.getByAltText(/Page at failure of step 4/)).toBeVisible();
+  await page.getByRole("button", { name: /^Step 4: / }).click();
+  const drawer = page.getByRole("dialog", { name: "Evidence" });
+  await expect(drawer.getByText("error", { exact: true })).toBeVisible();
+  await expect(drawer.getByAltText(/Page at failure of step 4/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Download CSV" })).toHaveCount(0);
 });
 
@@ -56,9 +58,9 @@ test("live Opus recovery: changed UI is repaired, approved where required, and t
 
   // Read-only fill repair applies automatically; the click repair needs a human.
   await expect(page.getByRole("button", { name: "Approve repair" })).toBeVisible({ timeout: 180_000 });
-  await expect(page.getByText("#refresh-results", { exact: true })).toBeVisible();
+  await expect(page.getByText("#refresh-results", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Approve repair" }).click();
-  await expect(page.getByText(/All steps completed .* including 2 repaired steps/)).toBeVisible({ timeout: 180_000 });
+  await expect(page.getByRole("heading", { level: 1, name: /Repaired and verified/ })).toBeVisible({ timeout: 180_000 });
 
   const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Download CSV" }).click()]);
   expect(parseCsv(await readFile(await dl.path(), "utf8")).rows.map((r) => r[0])).toEqual(expectedUnpaid(3000));
@@ -69,7 +71,7 @@ test("live Opus recovery: changed UI is repaired, approved where required, and t
   ]);
   // Survives refresh: status and repair history come from the database.
   await page.reload();
-  await expect(page.getByLabel("Recovery").getByText("auto-approved")).toBeVisible();
+  await expect(page.getByText("auto-repaired").first()).toBeVisible();
 });
 
 test("export removed: recovery cannot find a safe equivalent and stops truthfully", async ({ page, request }) => {

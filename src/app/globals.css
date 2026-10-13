@@ -165,3 +165,6 @@ table.data td { border-bottom: 1px solid var(--line); padding: 6px 8px; font-fam
   .list-row { grid-template-columns: minmax(0, 1fr) auto; }
   .list-row > :last-child { display: none; }
 }
+
+/* Keep the run story readable beside the open drawer on wide screens. */
+@media (min-width: 901px) { .has-drawer main { margin-right: min(560px, 46vw); } }

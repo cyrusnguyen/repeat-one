@@ -2,30 +2,25 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Fragment, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, CheckCircle2, Download, Loader2, RefreshCw, ShieldAlert, Square, Wrench, X, XCircle } from "lucide-react";
-import { api, duration, when } from "@/lib/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Download, Loader2, RefreshCw, Square, Play } from "lucide-react";
+import { api, duration } from "@/lib/client";
 import { parseCsv, type Table } from "@/lib/checks";
-import { StatusPill as StatusTag } from "@/components/StatusPill";
+import { groupSteps, runHeadline, runStages, type RunView } from "@/lib/run-view";
 import { isActive } from "@/lib/state";
 import type { CheckLog, StepLog } from "@/lib/store";
+import { TopBar } from "@/components/TopBar";
+import { StatusPill } from "@/components/StatusPill";
+import { StagePipeline } from "@/components/StagePipeline";
+import { EvidenceDrawer, type Repair } from "@/components/EvidenceDrawer";
 
-type Repair = {
-  id: string; stepIndex: number; attempt: number; action: string; failedSelector: string; error: string; failureEvidence: string | null;
-  proposedSelector: string | null; rationale: string; confidence: string | null; validation: string[]; matched: { tag?: string; label?: string; id?: string } | null;
-  decision: string; decisionReason: string; outcome: string; outcomeDetail: string; usage: { modelCalls?: number }; createdAt: string; decidedAt: string | null;
-};
 type RunData = {
   id: string; status: string; error: string | null; csvFile: string | null; workflowVersion: number; checkpoints: number;
   createdAt: string; startedAt: string | null; finishedAt: string | null;
   inputs: Record<string, string>; log: StepLog[]; checks: CheckLog[]; repairs: Repair[];
-  usage: { modelCalls?: number; inputTokens?: number; outputTokens?: number; estimatedCostUsd?: number };
+  usage: { modelCalls?: number; estimatedCostUsd?: number };
   workflow: { id: string; name: string };
 };
-
-function Evidence({ src, alt }: { src: string; alt: string }) {
-  return <a href={src} target="_blank" rel="noreferrer"><img className="shot" src={src} alt={alt} style={{ marginTop: 6, maxHeight: 200 }} /></a>;
-}
 
 export default function RunDetail() {
   const { id } = useParams<{ id: string }>();
@@ -33,7 +28,8 @@ export default function RunDetail() {
   const [error, setError] = useState<string | null>(null);
   const [csv, setCsv] = useState<Table | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [noFinalShot, setNoFinalShot] = useState(false);
+  const [selected, setSelected] = useState<number[] | null>(null);
+  const openers = useRef(new Map<number, HTMLButtonElement | null>());
   const art = useCallback((name: string) => `/api/runs/${id}/artifacts/${name}`, [id]);
 
   const load = useCallback(() => api<RunData>(`/api/runs/${id}`).then((r) => { setRun(r); setError(null); }, (e: Error) => setError(e.message)), [id]);
@@ -50,183 +46,166 @@ export default function RunDetail() {
     fetch(art(run.csvFile)).then((r) => (r.ok ? r.text() : Promise.reject(new Error("CSV unavailable")))).then((t) => setCsv(parseCsv(t)), () => setCsv(null));
   }, [run?.csvFile, active, art]);
 
+  // A repair waiting for a human opens its evidence automatically.
+  const pending = run?.status === "needs_approval" ? run.repairs.find((r) => r.decision === "pending") : undefined;
+  const [shownPending, setShownPending] = useState<string | null>(null);
+  if (pending && shownPending !== pending.id) {
+    setShownPending(pending.id);
+    setSelected([pending.stepIndex]);
+  }
+
+  const close = useCallback(() => {
+    setSelected((sel) => {
+      if (sel) openers.current.get(sel[0])?.focus();
+      return null;
+    });
+  }, []);
+
   async function act(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
     try { await fn(); } catch (e) { setError((e as Error).message); } finally { setBusy(null); await load(); }
   }
 
   if (!run) {
-    return <div className="page">{error ? <p className="callout danger" role="alert"><AlertTriangle aria-hidden />{error}</p> : <p className="muted"><Loader2 className="spin" aria-hidden /> Loading run…</p>}</div>;
+    return (
+      <>
+        <TopBar crumbs={[{ label: "Workflows", href: "/" }, { label: "Run" }]} />
+        <main className="page">{error ? <p className="callout danger" role="alert"><AlertTriangle aria-hidden /><span>{error}</span></p> : <p className="muted"><Loader2 className="spin" aria-hidden style={{ width: 14, verticalAlign: -2 }} /> Loading run…</p>}</main>
+      </>
+    );
   }
-  const done = run.log.filter((l) => l.status === "ok").length;
-  const repaired = run.log.filter((l) => l.repairedSelector).length;
-  const pending = run.repairs.find((r) => r.decision === "pending");
+
+  const view: RunView = { status: run.status, error: run.error, log: run.log, checks: run.checks, csvRows: csv ? csv.rows.length : null, repairs: run.repairs };
+  const headline = runHeadline(view);
+  const repaired = run.repairs.filter((r) => r.outcome === "verified").length;
+  const passed = run.checks.filter((c) => c.passed).length;
+  const selectedSteps = selected ? run.log.filter((l) => selected.includes(l.index)) : [];
+  const drawerTitle = selectedSteps.length === 1 ? `Step ${selectedSteps[0].index + 1} · ${selectedSteps[0].description}` : `Steps ${selected?.[0] !== undefined ? selected[0] + 1 : ""}-${selected?.[selected.length - 1] !== undefined ? selected[selected.length - 1] + 1 : ""}`;
 
   return (
-    <div className="split">
-      <div className="page">
-        <div className="spread">
-          <div style={{ display: "grid", gap: 4 }}>
-            <Link href={`/workflows/${run.workflow.id}`} className="hint">← {run.workflow.name}</Link>
-            <div className="row"><h1>Run</h1><StatusTag status={run.status} /><span className="hint mono">v{run.workflowVersion} · {run.id}</span></div>
-          </div>
-          {active && (
-            <button className="btn danger" disabled={busy === "cancel"} onClick={() => act("cancel", () => api(`/api/runs/${id}/cancel`, { body: {} }))}>
-              <Square aria-hidden /> {busy === "cancel" ? "Cancelling…" : "Cancel run"}
-            </button>
-          )}
-        </div>
+    <div className={selected ? "has-drawer" : undefined}>
+      <TopBar crumbs={[{ label: "Workflows", href: "/" }, { label: run.workflow.name, href: `/workflows/${run.workflow.id}` }, { label: "Run" }]}>
+        {active
+          ? <button className="btn" disabled={busy === "cancel"} onClick={() => act("cancel", () => api(`/api/runs/${id}/cancel`, { body: {} }))}><Square aria-hidden /> {busy === "cancel" ? "Cancelling…" : "Cancel run"}</button>
+          : <Link className="btn" href={`/workflows/${run.workflow.id}`}><Play aria-hidden /> Run again</Link>}
+      </TopBar>
 
-        {(run.status === "queued" || run.status === "running") && <p className="callout info" role="status"><Loader2 className="spin" aria-hidden /><span>Running in an isolated Chromium session: step {Math.min(done + 1, run.log.length)} of {run.log.length}.</span></p>}
-        {run.status === "recovering" && <p className="callout info" role="status"><Wrench aria-hidden /><span>A step&apos;s target was not found. Opus is investigating the live page; the engine will validate any proposal before it runs.</span></p>}
-        {run.status === "needs_approval" && <p className="callout warning" role="status"><ShieldAlert aria-hidden /><span><strong>Your decision is needed.</strong> Review the proposed repair in the Recovery panel. The run is paused and its time limit is on hold.</span></p>}
-        {run.status === "succeeded" && (
-          <p className="callout success" role="status"><CheckCircle2 aria-hidden />
-            <span>All steps completed and {run.checks.length} verification check{run.checks.length === 1 ? "" : "s"} passed{repaired ? `, including ${repaired} repaired step${repaired === 1 ? "" : "s"}` : ""}.</span>
+      <main className="page">
+        <header className="stack" style={{ gap: 6 }}>
+          <div className="row"><StatusPill status={run.status} /><span className="hint mono">v{run.workflowVersion} · {run.id}</span></div>
+          <h1 className="h1" style={headline.tone === "bad" ? { color: "#ffc1b8" } : undefined}>
+            {headline.tone === "gold" && <Loader2 className="spin" aria-hidden style={{ width: 20, verticalAlign: -2, marginRight: 8, color: "var(--gold)" }} />}
+            {headline.title}
+          </h1>
+          <p className="lead mono" style={{ fontSize: 12.5 }}>
+            {[
+              ...Object.entries(run.inputs).map(([k, v]) => `${k} = ${v}`),
+              duration(run.startedAt, run.finishedAt),
+              repaired ? `${repaired} repair${repaired === 1 ? "" : "s"}` : null,
+              run.checks.length ? `${passed} of ${run.checks.length} checks passed` : null,
+              run.usage.modelCalls ? `Opus ≈ $${run.usage.estimatedCostUsd?.toFixed(3)}` : null,
+              `${run.checkpoints} checkpoints`,
+            ].filter(Boolean).join(" · ")}
           </p>
-        )}
+        </header>
+
         {(run.status === "failed" || run.status === "cancelled") && (
           <div className={`callout ${run.status === "failed" ? "danger" : "warning"}`} role="alert">
-            <XCircle aria-hidden />
-            <div style={{ display: "grid", gap: 8 }}>
+            <AlertTriangle aria-hidden />
+            <div className="stack" style={{ gap: 10 }}>
               <span>{run.error ?? "Run did not complete."}</span>
               {run.status === "failed" && (
                 <span className="row">
-                  <span className="hint" style={{ color: "inherit" }}>Nothing was guessed. Review the steps or re-plan; the saved workflow never changes automatically.</span>
+                  <span className="hint" style={{ color: "inherit" }}>Nothing was guessed. The saved workflow never changes automatically.</span>
                   <Link className="btn" href={`/workflows/${run.workflow.id}`}><RefreshCw aria-hidden /> Review / re-plan</Link>
                 </span>
               )}
             </div>
           </div>
         )}
-        {error && <p className="callout danger"><AlertTriangle aria-hidden />{error}</p>}
+        {error && <p className="callout danger"><AlertTriangle aria-hidden /><span>{error}</span></p>}
 
-        <section className="card">
-          <h3>Step timeline</h3>
-          <ol className="steps">
-            {run.log.map((l) => (
-              <li key={l.index} className={l.status}>
-                <span className="n">{l.index + 1}</span>
-                <div>
-                  <div><span className="action">{l.action}</span> <span className="mono">{l.target}</span></div>
-                  <div className="muted">{l.description}</div>
-                  {l.failures.map((f) => (
-                    <div key={f.attempt} className="timeline-attempt">
-                      <div className="observed" style={{ color: "var(--danger)" }}>attempt {f.attempt} failed: {f.error}</div>
-                      {f.evidence && <Evidence src={art(f.evidence)} alt={`Page when step ${l.index + 1} attempt ${f.attempt} failed`} />}
-                    </div>
-                  ))}
-                  {l.repairedSelector && l.status === "ok" && <div className="observed" style={{ color: "var(--success)" }}>repaired target used: {l.repairedSelector}</div>}
-                  {l.observed && l.status === "ok" && <div className="observed">→ {l.observed}</div>}
-                  {l.action === "screenshot" && l.evidence && <Evidence src={art(l.evidence)} alt={`Screenshot after step ${l.index + 1}`} />}
-                </div>
-                <div style={{ display: "grid", justifyItems: "end", alignContent: "start", gap: 2 }}>
-                  <StatusTag status={l.status} />
-                  {l.attempts > 1 && <span className="hint">{l.attempts} attempts</span>}
-                  {l.startedAt && <span className="hint mono">{duration(l.startedAt, l.finishedAt)}</span>}
-                </div>
+        <StagePipeline stages={runStages(view, run.workflowVersion)} />
+
+        <ol className="timeline" aria-label="Steps">
+          {groupSteps(run.log).map((g) => {
+            const steps = g.kind === "group" ? g.steps : [g.step];
+            const first = steps[0], last = steps[steps.length - 1];
+            const indices = steps.map((s) => s.index);
+            const isSelected = !!selected && selected[0] === first.index && selected.length === indices.length;
+            const open = () => setSelected(isSelected ? null : indices);
+            if (g.kind === "group") {
+              const label = g.status === "ok" ? `${first.description} … ${last.description}` : g.status === "skipped" ? "Not reached" : "Not started yet";
+              return (
+                <li key={`g${first.index}`}>
+                  <button ref={(el) => { openers.current.set(first.index, el); }} className={`step-card quiet${isSelected ? " selected" : ""}`} onClick={open}>
+                    <span className="n">{first.index + 1}-{last.index + 1}</span>
+                    <span>{label}</span>
+                    <span className="meta"><StatusPill status={g.status} /></span>
+                  </button>
+                </li>
+              );
+            }
+            const s = g.step;
+            const repair = run.repairs.filter((r) => r.stepIndex === s.index).at(-1);
+            const waiting = repair?.decision === "pending" && run.status === "needs_approval";
+            const lastFailure = s.failures.at(-1);
+            const cls = ["step-card", waiting ? "attention" : "", s.status === "failed" ? "failed" : "", isSelected ? "selected" : ""].filter(Boolean).join(" ");
+            return (
+              <li key={s.index}>
+                <button ref={(el) => { openers.current.set(s.index, el); }} className={cls} onClick={open} aria-label={`Step ${s.index + 1}: ${s.description}`}>
+                  <span className="n">{s.index + 1}</span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontWeight: 600 }}>{s.description}</span>
+                    <span className="mono muted" style={{ display: "block", overflowWrap: "anywhere" }}>{s.action} {s.target}</span>
+                    {repair?.proposedSelector && (repair.outcome === "verified" || waiting) && (
+                      <span className="diff" style={{ display: "block" }}><s>{repair.failedSelector}</s> → <ins>{repair.proposedSelector}</ins>{s.attempts > 1 && <span className="muted"> · {s.attempts} attempts</span>}</span>
+                    )}
+                    {s.status === "failed" && lastFailure && <span className="mono" style={{ display: "block", color: "var(--bad)", marginTop: 4 }}>attempt {lastFailure.attempt} failed: {lastFailure.error}</span>}
+                    {waiting && <span style={{ display: "block", color: "var(--gold)", marginTop: 4 }}>Waiting for your decision →</span>}
+                  </span>
+                  <span className="meta">
+                    {repair ? <StatusPill status={repair.decision} /> : <StatusPill status={s.status} />}
+                    {s.startedAt && <span className="hint mono">{duration(s.startedAt, s.finishedAt)}</span>}
+                  </span>
+                </button>
               </li>
-            ))}
-          </ol>
-        </section>
+            );
+          })}
+        </ol>
 
         {csv && run.csvFile && (
-          <section className="card">
+          <section className="card stack" style={{ gap: 12 }}>
             <div className="spread">
-              <h3>Exported CSV · {csv.rows.length} rows</h3>
-              <a className="btn primary" href={art(run.csvFile)} download><Download aria-hidden /> Download CSV</a>
+              <h2 className="eyebrow">Exported CSV · {csv.rows.length} rows</h2>
+              <a className="btn" href={art(run.csvFile)} download><Download aria-hidden /> Download CSV</a>
             </div>
             <div className="scroll-x">
-              <table className="grid">
+              <table className="data">
                 <thead><tr>{csv.headers.map((h) => <th key={h}>{h}</th>)}</tr></thead>
-                <tbody>{csv.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className="mono">{c}</td>)}</tr>)}</tbody>
+                <tbody>{csv.rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
               </table>
             </div>
             {csv.rows.length === 0 && <p className="muted">The export has headers but no rows for these inputs.</p>}
           </section>
         )}
-      </div>
+      </main>
 
-      <aside>
-        <section className="card" aria-label="Recovery">
-          <h2>Recovery</h2>
-          {run.repairs.length === 0 && <p className="muted">No recovery was needed{active ? " so far" : ""}.</p>}
-          {run.repairs.map((r) => (
-            <div key={r.id} style={{ display: "grid", gap: 8, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-              <div className="spread"><strong>Step {r.stepIndex + 1} · {r.action}</strong><StatusTag status={r.decision} /></div>
-              <div>
-                <div className="hint">What failed</div>
-                <div className="observed mono" style={{ color: "var(--danger)" }}>{r.error}</div>
-                {r.failureEvidence && <Evidence src={art(r.failureEvidence)} alt={`Page at failure of step ${r.stepIndex + 1}`} />}
-              </div>
-              {r.proposedSelector && (
-                <div>
-                  <div className="hint">What changed (proposed by Opus)</div>
-                  <div className="diff"><span>before</span><span className="old">{r.failedSelector}</span><span>after</span><span className="new">{r.proposedSelector}</span></div>
-                  {r.matched && <div className="hint">Matches &lt;{r.matched.tag}&gt; “{r.matched.label}”</div>}
-                  <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{r.rationale}{r.confidence && <> · confidence {r.confidence}</>}</p>
-                </div>
-              )}
-              <div>
-                <div className="hint">Engine checks</div>
-                {r.validation.length ? <ul className="observed" style={{ margin: 0, paddingLeft: 16, color: "var(--danger)" }}>{r.validation.map((v) => <li key={v}>{v}</li>)}</ul>
-                  : r.proposedSelector ? <div className="observed" style={{ color: "var(--success)" }}>Same action and value, one visible element of the right kind, non-destructive, permitted origin.</div>
-                  : <div className="observed">No proposal to check.</div>}
-              </div>
-              <div>
-                <div className="hint">Why {r.decision === "auto_approved" ? "it was applied automatically" : "this decision"}</div>
-                <div style={{ fontSize: 13 }}>{r.decisionReason}</div>
-              </div>
-              {r.decision === "pending" && run.status === "needs_approval" && pending?.id === r.id && (
-                <div className="row">
-                  <button className="btn primary" disabled={!!busy} onClick={() => act("approve", () => api(`/api/runs/${id}/repairs/${r.id}`, { body: { decision: "approve" } }))}><Check aria-hidden /> Approve repair</button>
-                  <button className="btn" disabled={!!busy} onClick={() => act("reject", () => api(`/api/runs/${id}/repairs/${r.id}`, { body: { decision: "reject" } }))}><X aria-hidden /> Reject</button>
-                </div>
-              )}
-              <div className="spread">
-                <span className="hint">Retried step</span>
-                <StatusTag status={r.outcome} />
-              </div>
-              {r.outcomeDetail && <div className="observed">{r.outcomeDetail}</div>}
-              {r.outcome === "verified" && <div className="hint">The repaired step ran. The run still has to pass every original check below.</div>}
-            </div>
-          ))}
-        </section>
-
-        <section className="card">
-          <h2>Verification</h2>
-          {run.checks.length === 0 ? <p className="muted">{active ? "Checks run after the actions they verify." : "No checks were evaluated."}</p> : (
-            <ul className="steps">
-              {run.checks.map((c, i) => (
-                <li key={i} className={c.passed ? "" : "failed"} style={{ gridTemplateColumns: "20px 1fr" }}>
-                  {c.passed ? <CheckCircle2 aria-label="passed" style={{ color: "var(--success)", width: 16 }} /> : <XCircle aria-label="failed" style={{ color: "var(--danger)", width: 16 }} />}
-                  <div><div>{c.description}</div><div className="observed">{c.detail}</div></div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="card">
-          <h2>Details</h2>
-          <dl className="kv">
-            <dt>Queued</dt><dd>{when(run.createdAt)}</dd>
-            <dt>Duration</dt><dd className="mono">{duration(run.startedAt, run.finishedAt)}</dd>
-            {Object.entries(run.inputs).map(([k, v]) => <Fragment key={k}><dt className="mono">{k}</dt><dd className="mono">{v}</dd></Fragment>)}
-            <dt>Checkpoints</dt><dd>{run.checkpoints} verified step{run.checkpoints === 1 ? "" : "s"} saved</dd>
-            <dt>Model use</dt><dd>{run.usage.modelCalls ? <>{run.usage.modelCalls} calls · ≈ ${run.usage.estimatedCostUsd?.toFixed(3)} <span className="hint">(estimate)</span></> : "none"}</dd>
-          </dl>
-        </section>
-
-        {!active && (
-          <section className="card">
-            <h2>Final page</h2>
-            {noFinalShot ? <p className="muted">No final screenshot (the browser closed before one was taken).</p> : (
-              <a href={art("final.png")} target="_blank" rel="noreferrer"><img className="shot" src={art("final.png")} alt="Final page state" onError={() => setNoFinalShot(true)} /></a>
-            )}
-          </section>
-        )}
-      </aside>
+      {selected && (
+        <EvidenceDrawer
+          title={drawerTitle}
+          steps={selectedSteps}
+          repairs={run.repairs}
+          checks={run.checks}
+          csv={csv}
+          finalShot={active ? null : "final.png"}
+          art={art}
+          decisionOpen={run.status === "needs_approval"}
+          busy={!!busy}
+          onClose={close}
+          onDecide={(repairId, decision) => act(decision, () => api(`/api/runs/${id}/repairs/${repairId}`, { body: { decision } }))}
+        />
+      )}
     </div>
   );
 }

@@ -92,7 +92,7 @@ test("a running workflow can be cancelled", async ({ page, request }) => {
   await page.goto(`/runs/${runId}`);
   await page.getByRole("button", { name: "Cancel run" }).click();
   await expect(page.getByText("Cancelled by user.")).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator(".tag.cancelled").first()).toBeVisible();
+  await expect(page.locator(".pill.cancelled").first()).toBeVisible();
 });
 
 test("create form rejects bad input with actionable messages and plans nothing", async ({ page }) => {

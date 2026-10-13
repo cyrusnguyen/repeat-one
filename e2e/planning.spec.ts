@@ -28,7 +28,7 @@ test("describe, Opus inspects the real page, approve, run, replay with new input
     await page.locator('input[name="minimumAmount"]').fill(amount);
     await page.getByRole("button", { name: button }).click();
     await page.waitForURL(/\/runs\//);
-    await expect(page.getByText(/All steps completed/)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("heading", { level: 1, name: /Verified/ })).toBeVisible({ timeout: 60_000 });
     const [dl] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Download CSV" }).click()]);
     const csv = parseCsv(await readFile(await dl.path(), "utf8"));
     expect(csv.rows.map((r) => r[0])).toEqual(expectedUnpaid(Number(amount)));
