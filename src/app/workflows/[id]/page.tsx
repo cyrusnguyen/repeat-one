@@ -198,18 +198,17 @@ export default function WorkflowDetail() {
         <section className="card">
           <h2>Run history</h2>
           {runs.length === 0 ? <p className="muted">No runs yet.</p> : (
-            <table className="grid">
-              <thead><tr><th>Started</th><th>Outcome</th><th>Took</th></tr></thead>
+            <div className="scroll-x"><table className="grid">
+              <thead><tr><th>Started</th><th>Outcome</th></tr></thead>
               <tbody>
                 {runs.map((r) => (
                   <tr key={r.id}>
                     <td><Link href={`/runs/${r.id}`}>{when(r.createdAt)}</Link><div className="hint mono">{Object.entries(r.inputs).map(([k, v]) => `${k}=${v}`).join(" ")}</div></td>
-                    <td><StatusTag status={r.status} /></td>
-                    <td className="mono">{duration(r.startedAt, r.finishedAt)}</td>
+                    <td><StatusTag status={r.status} /><div className="hint mono nowrap">{duration(r.startedAt, r.finishedAt)}</div></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </section>
       </aside>

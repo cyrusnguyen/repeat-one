@@ -2,27 +2,28 @@
 
 `[x]` done and verified, `[~]` built, not yet verified, `[ ]` open, `[!]` blocked. Refs point at `RepeatOne2_SPEC.md` §4.
 
-## Carried over from v1 (built, verify under v2)
-- [~] Next.js + pnpm + Prisma/SQLite + Zod + Vitest + Playwright scaffold; lint, typecheck, unit tests, build pass
-- [~] Opus planner over read-only tools, validated `propose_workflow`, plan approval gate [4.1]
-- [~] Browser tools with network-layer allowlist, destructive-label guard, password guard, redaction [4.5]
-- [~] Deterministic runner with assertions, CSV artifact, screenshots, cancel, timeout, max steps [4.2]
+## Foundation
+- [x] Next.js + pnpm + Prisma/SQLite + Zod + Vitest + Playwright; lint, typecheck, test, build pass
+- [~] Opus planner over read-only tools, validated `propose_workflow` [4.1] (code path built, never called live: no key)
+- [x] Plan approval gate, rejection runs nothing (E2E) [4.1]
+- [x] Browser tools: network-layer allowlist, redirect containment, destructive and password guards, redaction [4.5]
 
 ## v2 vertical slice
-- [ ] Demo portal as server route with UI variants (classic / redesigned / export removed) + toggle API [4.3]
-- [ ] Typed run state machine incl. `recovering`, `needs_approval`; illegal transitions rejected in DB update [4.2]
-- [ ] Workflow versions + per-run definition snapshot; checkpoint row after each verified step [4.1, 4.4]
-- [ ] Step records: attempts, timestamps, observation, assertion, evidence id [4.2]
-- [ ] Recovery: locator failure -> bounded Opus proposal (selector only) -> engine validation -> policy (auto for read-only, ask for click/download) -> retry -> original assertions [4.3]
-- [ ] Repair records + approve/reject API (stale decisions rejected) + approval timeout [4.3, 4.4]
-- [ ] Budgets: max recovery attempts, max model calls / cost per run, observation size cap [4.2, 4.5]
-- [ ] UI: variant toggle, success criteria, recovery panel (failure, proposal, validation, decision, retry, result) [§3, 4.3]
+- [x] Demo portal route with variants (classic / redesigned / export removed) + toggle API [4.3]
+- [x] Typed run state machine incl. `recovering`, `needs_approval`; compare-and-set transitions [4.2]
+- [x] Workflow versions + per-run definition snapshot; checkpoint row after each verified step [4.1, 4.4]
+- [x] Step records: attempts, timestamps, observation, failures with evidence [4.2]
+- [x] Recovery engine: locator failure -> proposal -> engine validation -> policy -> retry -> original assertions (real browser, scripted proposer) [4.3]
+- [~] Recovery with live Opus proposer [4.3] (code path built and fails truthfully without a key)
+- [x] Repair records + approve/reject API, stale decisions rejected, approval timeout [4.3, 4.4]
+- [x] Budgets: recovery attempts, model calls/cost, observation size cap, run timeout, max steps [4.2, 4.5]
+- [x] UI: variant toggle, success criteria, recovery panel, approval buttons; inspected at 1440 and 760 px, no console errors [§3, 4.6]
 
 ## Verification
-- [ ] Unit: state transitions, repair validation/policy, budgets, plus existing safety/checks/schemas
-- [ ] Integration (real Chromium, scripted proposer, labeled): auto repair verified, invalid/stale proposal, budget exhausted
-- [ ] E2E: approve -> run -> CSV -> reload -> replay new input; rejected plan; unsafe origin/redirect; destructive click; unrecoverable stop
-- [!] E2E with live Opus: plan + recovery on redesigned UI (needs `ANTHROPIC_API_KEY`) [4.6]
-- [ ] Inspect rendered UI (console errors, contrast, dead controls)
-- [ ] README: setup, architecture, env, limitations, demo reset, 2-minute demo script
+- [x] Unit: state transitions, safety, checks, schemas (24 tests)
+- [x] Integration, real Chromium + scripted proposer: auto repair, approval, rejection, destructive/stale/invalid proposals, budget exhausted, unrecoverable, no-key (9 tests)
+- [x] E2E, real app + Chromium: approve -> run -> CSV -> reload -> replay; duplicate submit; rejected plan; blocked origin/link/redirect; destructive click; failed postcondition; cancel; form errors; changed UI without key; export removed (14 pass)
+- [!] E2E with live Opus: planning + recovery (2 tests skip; needs `ANTHROPIC_API_KEY` in `.env`) [4.1, 4.3, 4.6]
+- [!] Prompt-injection check against live Opus [4.5] (tool-level blocking verified; model behaviour not)
+- [x] README: setup, architecture, env, limitations, demo reset, 2-minute demo script
 - [ ] Ponytail review, fixes re-tested

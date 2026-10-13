@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:push": "prisma db push --skip-generate",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "demo:reset": "node scripts/reset-demo.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

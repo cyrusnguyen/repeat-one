@@ -25,7 +25,7 @@ export function WorkflowList() {
     <>
       <div className="spread">
         <h3>Workflows</h3>
-        <Link className="btn primary" href="/workflows/new"><Plus aria-hidden /> New</Link>
+        <Link className="btn" href="/workflows/new"><Plus aria-hidden /> New</Link>
       </div>
       {error && <p className="callout danger">{error}</p>}
       {items === null && !error && <p className="muted">Loading…</p>}
