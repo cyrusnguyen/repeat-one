@@ -15,6 +15,15 @@ export type RepairProposal = z.infer<typeof RepairProposal>;
 const NoSafeRepair = z.object({ reason: z.string().min(1).max(600) });
 
 export type LocatorStep = Extract<Step, { selector: string }>;
+
+/** The model's reason for stopping, kept even when it overruns the requested length (a stop must stay explained). */
+export function noRepairReason(input: unknown): string {
+  const raw = (input as { reason?: unknown } | null)?.reason;
+  const text = typeof raw === "string" ? raw.trim() : "";
+  if (!text) return "Model stopped without a valid reason.";
+  const clean = redact(text);
+  return clean.length > 600 ? `${clean.slice(0, 600)}…` : clean;
+}
 export const RECOVERABLE = new Set<Step["action"]>(["fill", "select", "click", "wait", "extract", "download"]);
 // Steps whose repaired target cannot cause side effects: may be applied without a human once validated.
 const READ_ONLY = new Set<Step["action"]>(["fill", "select", "wait", "extract"]);
@@ -113,8 +122,7 @@ export const proposeRepairWithOpus: Proposer = async (s, ctx, usage, signal) => 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const call of uses) {
       if (call.name === "no_safe_repair") {
-        const parsed = NoSafeRepair.safeParse(call.input);
-        return { kind: "none", reason: parsed.success ? redact(parsed.data.reason) : "Model stopped without a valid reason." };
+        return { kind: "none", reason: noRepairReason(call.input) };
       }
       if (call.name === "observe") {
         results.push({ type: "tool_result", tool_use_id: call.id, content: untrusted(await observe(s)) });
