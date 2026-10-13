@@ -34,6 +34,7 @@ export async function callModel(usage: Usage, params: { system: string; tools: A
   if (usage.modelCalls >= maxCalls) throw new Error(`Model call limit reached (${maxCalls}).`);
   if (usage.estimatedCostUsd >= maxCostUsd) throw new Error(`Estimated cost $${usage.estimatedCostUsd.toFixed(3)} reached the $${maxCostUsd} ceiling.`);
   const client = new Anthropic({ timeout: 180_000, maxRetries: 1 });
+  const started = Date.now();
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 16000,
@@ -45,6 +46,8 @@ export async function callModel(usage: Usage, params: { system: string; tools: A
   usage.inputTokens += response.usage.input_tokens;
   usage.outputTokens += response.usage.output_tokens;
   usage.estimatedCostUsd = (usage.inputTokens * PRICE_IN + usage.outputTokens * PRICE_OUT) / 1e6;
+  // Operational trace only: no prompt or page content.
+  console.info(`[opus] call ${usage.modelCalls} ${Date.now() - started}ms stop=${response.stop_reason} in=${response.usage.input_tokens} out=${response.usage.output_tokens} tools=${toolCalls(response).map((t) => t.name).join(",") || "-"}`);
   if (response.stop_reason === "refusal") throw new Error("The model declined this request.");
   if (response.stop_reason === "max_tokens") throw new Error("The model response was cut off (max_tokens).");
   return response;

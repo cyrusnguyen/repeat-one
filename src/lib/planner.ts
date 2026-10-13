@@ -115,6 +115,7 @@ export async function planWorkflow(req: {
         } catch (err) {
           const message = redact(err instanceof Error ? err.message : String(err));
           meta.trace.push(`${call.name} → error: ${message.split("\n")[0]}`);
+          console.info(`[planner] ${call.name} rejected: ${message.replace(/\s+/g, " ").slice(0, 300)}`);
           results.push({ type: "tool_result", tool_use_id: call.id, is_error: true, content: message });
         }
       }

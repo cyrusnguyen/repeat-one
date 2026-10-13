@@ -62,7 +62,7 @@ export default function NewWorkflow() {
       <form className="page" onSubmit={submit} aria-busy={busy}>
         <div className="spread">
           <h1>Create workflow</h1>
-          <button type="button" className="btn ghost" onClick={useDemo} disabled={busy}><Sparkles aria-hidden /> Use demo example</button>
+          <button type="button" className="btn ghost" onClick={useDemo} disabled={busy || !config}><Sparkles aria-hidden /> Use demo example</button>
         </div>
 
         {config && !config.hasApiKey && (
@@ -124,7 +124,8 @@ export default function NewWorkflow() {
         {error && <p className="callout danger" role="alert"><AlertTriangle aria-hidden /><span style={{ whiteSpace: "pre-wrap" }}>{error}</span></p>}
 
         <div className="row">
-          <button className="btn primary" type="submit" disabled={busy}>
+          {/* Disabled until hydrated and configured: an early click would otherwise do a native form submit and silently reload. */}
+          <button className="btn primary" type="submit" disabled={busy || !config}>
             {busy ? <><Loader2 className="spin" aria-hidden /> Planning… {elapsed}s</> : "Inspect page & propose plan"}
           </button>
           {busy && <span className="muted" role="status">Opus is inspecting the live page and drafting steps. This usually takes under a minute.</span>}
