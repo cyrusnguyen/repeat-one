@@ -11,8 +11,8 @@ test("describe, Opus inspects the real page, approve, run, replay with new input
   test.skip(!hasKey, "ANTHROPIC_API_KEY not configured; live planning not exercised");
   test.setTimeout(600_000);
   await page.goto("/workflows/new");
-  await page.getByRole("button", { name: "Use demo example" }).click();
-  await page.getByRole("button", { name: /Inspect page/ }).click();
+  await page.getByRole("button", { name: "Fill demo example" }).click();
+  await page.getByRole("button", { name: "Propose a plan" }).click();
   // Planning may use up to MAX_MODEL_CALLS calls; fail fast if the UI reports an error instead.
   const failed = page.locator(".callout.danger[role=alert]");
   await expect(async () => {

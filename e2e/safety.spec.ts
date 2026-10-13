@@ -104,11 +104,11 @@ test("create form rejects bad input with actionable messages and plans nothing",
     ["file:///C:/Windows/win.ini", /Start URL is not allowed/],
   ] as const) {
     await page.getByLabel("Starting URL").fill(url);
-    await page.getByRole("button", { name: /Inspect page/ }).click();
+    await page.getByRole("button", { name: "Propose a plan" }).click();
     await expect(page.locator(".callout[role=alert]")).toContainText(message);
   }
   await page.getByLabel("What should happen?").fill("");
-  await page.getByRole("button", { name: /Inspect page/ }).click();
+  await page.getByRole("button", { name: "Propose a plan" }).click();
   await expect(page.locator(".callout[role=alert]")).toContainText("Describe the task");
 });
 

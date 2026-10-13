@@ -8,9 +8,13 @@ import { CreateWorkflow } from "@/lib/schemas";
 export const GET = handle(async () => {
   const rows = await db.workflow.findMany({
     orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true, status: true, updatedAt: true, runs: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true } } },
+    select: {
+      id: true, name: true, task: true, version: true, status: true, updatedAt: true,
+      _count: { select: { runs: true } },
+      runs: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true } },
+    },
   });
-  return Promise.all(rows.map(async ({ runs, ...w }) => ({ ...w, lastRunStatus: runs[0] ? (await reconcileRun(runs[0])).status : null })));
+  return Promise.all(rows.map(async ({ runs, _count, ...w }) => ({ ...w, runCount: _count.runs, lastRunStatus: runs[0] ? (await reconcileRun(runs[0])).status : null })));
 });
 
 /** Validate → let Opus inspect the real page and propose → persist as needs_approval. Nothing runs here. */
