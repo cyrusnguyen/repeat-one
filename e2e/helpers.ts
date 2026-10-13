@@ -12,8 +12,9 @@ export const DEMO = "http://localhost:3100/demo/invoices";
 
 export const canonicalSteps: Step[] = sharedCanonicalSteps(DEMO);
 
-/** Live-model tests run only when the app's .env (or the environment) has a key. */
+/** Live-model tests run only with E2E_LIVE=1 and a key in the app's .env (or the environment). */
 export function hasModelKey(): boolean {
+  if (process.env.E2E_LIVE !== "1") return false;
   try {
     if (/^ANTHROPIC_API_KEY=\S/m.test(readFileSync(".env", "utf8"))) return true;
   } catch {}

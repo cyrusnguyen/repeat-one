@@ -96,10 +96,10 @@ textarea { min-height: 90px; resize: vertical; }
 /* Status tags */
 .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap; }
 .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.tag.succeeded, .tag.approved, .tag.ok, .tag.auto_approved, .tag.verified { color: var(--success); border-color: var(--success-border); background: var(--success-bg); }
-.tag.failed, .tag.rejected, .tag.invalid, .tag.no_safe_repair, .tag.error, .tag.expired { color: var(--danger); border-color: var(--danger-border); background: var(--danger-bg); }
+.tag.succeeded, .tag.approved, .tag.ok, .tag.auto_approved, .tag.verified, .tag.found, .tag.loaded { color: var(--success); border-color: var(--success-border); background: var(--success-bg); }
+.tag.failed, .tag.rejected, .tag.invalid, .tag.no_safe_repair, .tag.error, .tag.expired, .tag.ambiguous { color: var(--danger); border-color: var(--danger-border); background: var(--danger-bg); }
 .tag.running, .tag.queued, .tag.recovering { color: var(--info); border-color: var(--info-border); background: var(--info-bg); }
-.tag.needs_approval, .tag.cancelled, .tag.pending { color: var(--warning); border-color: var(--warning-border); background: var(--warning-bg); }
+.tag.needs_approval, .tag.cancelled, .tag.pending, .tag.missing { color: var(--warning); border-color: var(--warning-border); background: var(--warning-bg); }
 
 /* Segmented control */
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }

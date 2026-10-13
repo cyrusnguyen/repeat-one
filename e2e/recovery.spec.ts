@@ -56,7 +56,7 @@ test("live Opus recovery: changed UI is repaired, approved where required, and t
 
   // Read-only fill repair applies automatically; the click repair needs a human.
   await expect(page.getByRole("button", { name: "Approve repair" })).toBeVisible({ timeout: 180_000 });
-  await expect(page.getByText("#refresh-results")).toBeVisible();
+  await expect(page.getByText("#refresh-results", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Approve repair" }).click();
   await expect(page.getByText(/All steps completed .* including 2 repaired steps/)).toBeVisible({ timeout: 180_000 });
 

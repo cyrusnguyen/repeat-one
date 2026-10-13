@@ -11,6 +11,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "./db";
 import { canonicalSteps, expectedUnpaid, renderPortal, setVariant, type Variant } from "./demo-portal";
 import { parseCsv } from "./checks";
+import { previewPlan } from "./preview";
 import type { Proposer } from "./recovery";
 import { ARTIFACT_ROOT, decideRepairManually, RunConflict, startRun, StaleDecision } from "./runner";
 import type { Step } from "./schemas";
@@ -169,5 +170,25 @@ describe("recovery on a changed UI (scripted proposer)", () => {
     const run = await waitFor(runId, ["failed"]);
     expect(run.error).toMatch(/Recovery could not run: ANTHROPIC_API_KEY is not set/);
     expect((await repairsOf(runId))[0].decision).toBe("error");
+  });
+});
+
+describe("plan preview (read-only, before approval)", () => {
+  it("locates targets on the live page without running anything", async () => {
+    const items = await previewPlan(DEMO, canonicalSteps(DEMO), [{ name: "minimumAmount", label: "Min", type: "number", default: "1000" }], [process.env.ALLOWED_URL_PREFIXES!]);
+    const byStep = Object.fromEntries(items.map((i) => [i.step, i]));
+    expect(byStep[1]).toMatchObject({ action: "navigate", status: "loaded" });
+    expect(byStep[4]).toMatchObject({ action: "fill", status: "found" });
+    expect(byStep[4].image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(byStep[9]).toMatchObject({ action: "screenshot", status: "not_checked" });
+    expect(items.filter((i) => i.status === "error")).toEqual([]);
+  });
+
+  it("reports targets that a changed UI no longer has", async () => {
+    setVariant("redesigned");
+    const items = await previewPlan(DEMO, canonicalSteps(DEMO), [], [process.env.ALLOWED_URL_PREFIXES!]);
+    expect(items.find((i) => i.target.startsWith("#min-amount"))?.status).toBe("missing");
+    expect(items.find((i) => i.target === "#apply-filters")?.status).toBe("missing");
+    expect(items.find((i) => i.target === "#export-csv")?.status).toBe("found");
   });
 });

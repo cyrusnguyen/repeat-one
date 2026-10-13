@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Check, Loader2, Pencil, Play, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, Eye, Loader2, Pencil, Play, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import { api, duration, notifyWorkflowsChanged, when } from "@/lib/client";
 import { StatusTag } from "@/components/StatusTag";
 import { isActive } from "@/lib/state";
 import { stepTarget, type InputDef, type Step } from "@/lib/schemas";
 import type { PlanMeta } from "@/lib/planner";
+import type { PreviewItem } from "@/lib/preview";
 
 type RunRow = { id: string; status: string; createdAt: string; startedAt: string | null; finishedAt: string | null; error: string | null; inputs: Record<string, string> };
 type Data = {
@@ -24,6 +25,7 @@ export default function WorkflowDetail() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [preview, setPreview] = useState<PreviewItem[] | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const load = useCallback(() => api<Data>(`/api/workflows/${id}`).then((d) => { setData(d); setError(null); }, (e: Error) => setError(e.message)), [id]);
@@ -96,6 +98,9 @@ export default function WorkflowDetail() {
             </form>
           )}
           <div className="row">
+            <button className="btn" disabled={!!busy} onClick={() => act("preview", async () => setPreview((await api<{ items: PreviewItem[] }>(`/api/workflows/${id}/preview`, { body: {} })).items))}>
+              {busy === "preview" ? <Loader2 className="spin" aria-hidden /> : <Eye aria-hidden />} {busy === "preview" ? "Previewing…" : "Preview"}
+            </button>
             <button className="btn" disabled={!!busy || !!activeRun} onClick={() => act("replan", () => api(`/api/workflows/${id}/plan`, { body: {} }))}>
               {busy === "replan" ? <Loader2 className="spin" aria-hidden /> : <RefreshCw aria-hidden />} {busy === "replan" ? "Re-planning…" : "Re-plan"}
             </button>
@@ -114,7 +119,7 @@ export default function WorkflowDetail() {
           <div className="callout warning" role="region" aria-label="Approval required">
             <ShieldCheck aria-hidden />
             <div style={{ display: "grid", gap: 8, flex: 1 }}>
-              <span><strong>Approval required.</strong> Review the steps below. Nothing runs until you approve this plan.</span>
+              <span><strong>Approval required.</strong> Review the steps below. Nothing runs until you approve this plan. Use <strong>Preview</strong> to see each step&apos;s target highlighted on the live page first; it never clicks or types.</span>
               <div className="row">
                 <button className="btn primary" disabled={!!busy || !!definitionError} onClick={() => act("approve", () => api(`/api/workflows/${id}/approval`, { body: { decision: "approve" } }))}><Check aria-hidden /> Approve plan</button>
                 <button className="btn" disabled={!!busy} onClick={() => act("reject", () => api(`/api/workflows/${id}/approval`, { body: { decision: "reject" } }))}><X aria-hidden /> Reject</button>
@@ -145,6 +150,29 @@ export default function WorkflowDetail() {
           {wf.planNotes && <p className="muted"><strong>Planner notes:</strong> {wf.planNotes}</p>}
           {!!meta.warnings?.length && <ul className="callout warning" style={{ display: "block", margin: 0, paddingLeft: 28 }}>{meta.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
         </section>
+
+        {preview && (
+          <section className="card" aria-label="Preview">
+            <div className="spread">
+              <h3>Preview on the live page</h3>
+              <button className="btn ghost" onClick={() => setPreview(null)}><X aria-hidden /> Close</button>
+            </div>
+            <p className="hint">Read-only: the start page was loaded in an isolated browser and each target was located. Nothing was clicked, typed or downloaded, so later steps are checked against the start page only.</p>
+            <ol className="steps">
+              {preview.map((p) => (
+                <li key={p.step}>
+                  <span className="n">{p.step}</span>
+                  <div>
+                    <div><span className="action">{p.action}</span> <span className="mono">{p.target}</span></div>
+                    <div className="observed">{p.detail}</div>
+                    {p.image && <img className="shot" src={p.image} alt={`Preview of step ${p.step}`} style={{ marginTop: 6, maxHeight: 220 }} />}
+                  </div>
+                  <StatusTag status={p.status} />
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
         <section className="card">
           <h3>Success means</h3>

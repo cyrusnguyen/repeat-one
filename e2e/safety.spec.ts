@@ -11,7 +11,8 @@ async function runToEnd(request: APIRequestContext, steps: Step[]) {
   const res = await request.post(`/api/workflows/${id}/runs`, { data: { inputs: { minimumAmount: "1000" } } });
   expect(res.status()).toBe(200);
   const { runId } = await res.json();
-  await expect.poll(async () => (await (await request.get(`/api/runs/${runId}`)).json()).status, { timeout: 30_000 }).not.toMatch(/queued|running/);
+  // Wait for an outcome or a pending human decision; queued/running/recovering are still in progress.
+  await expect.poll(async () => (await (await request.get(`/api/runs/${runId}`)).json()).status, { timeout: 120_000 }).toMatch(/^(succeeded|failed|cancelled|needs_approval)$/);
   return { runId, run: await (await request.get(`/api/runs/${runId}`)).json() };
 }
 
@@ -50,11 +51,21 @@ test("destructive actions are refused before they happen", async ({ request }) =
 });
 
 test("a changed page fails with an explanation and offers re-plan", async ({ page, request }) => {
-  const { runId, run } = await runToEnd(request, [{ action: "navigate", url: DEMO, description: "Open" }, { action: "click", selector: "#renamed-button", description: "Old button" }, verify]);
+  const steps: Step[] = [{ action: "navigate", url: DEMO, description: "Open" }, { action: "click", selector: "#renamed-button", description: "Old button" }, verify];
+  const started = await runToEnd(request, steps);
+  const { runId } = started;
+  let { run } = started;
+  // With a live model, Opus may propose a click repair, which waits for a human: reject it.
+  if (run.status === "needs_approval") {
+    const pending = run.repairs.find((r: { decision: string }) => r.decision === "pending");
+    await request.post(`/api/runs/${runId}/repairs/${pending.id}`, { data: { decision: "reject" } });
+    await expect.poll(async () => (await (await request.get(`/api/runs/${runId}`)).json()).status, { timeout: 30_000 }).toBe("failed");
+    run = await (await request.get(`/api/runs/${runId}`)).json();
+  }
   expect(run.status).toBe("failed");
   // The real locator failure is recorded first; recovery then stops truthfully (no key: model unavailable; with key: no safe repair).
   expect(run.log[1].failures[0].error).toMatch(/Element not found: #renamed-button/);
-  expect(run.error).toMatch(/Recovery (could not run|stopped safely|proposal rejected)/);
+  expect(run.error).toMatch(/Recovery (could not run|stopped safely|proposal rejected)|Reviewer rejected/);
   await page.goto(`/runs/${runId}`);
   await expect(page.getByText("attempt 1 failed: Element not found: #renamed-button")).toBeVisible();
   await expect(page.getByRole("link", { name: /Review \/ re-plan/ })).toBeVisible();
@@ -107,5 +118,19 @@ test("state-changing endpoints refuse non-JSON (cross-site form) requests", asyn
   for (const url of [`/api/workflows/${id}/runs`, `/api/workflows/${id}/plan`, `/api/workflows/${id}/approval`, "/api/runs/anything/cancel", "/api/demo/variant"]) {
     expect((await request.post(url, form)).status(), url).toBe(415);
   }
+  expect(await db.run.count({ where: { workflowId: id } })).toBe(0);
+});
+
+test("preview shows targets on the live page before approval and runs nothing", async ({ page }) => {
+  const id = await seedWorkflow("Preview before approval", canonicalSteps);
+  await page.goto(`/workflows/${id}`);
+  await expect(page.getByRole("button", { name: /Run workflow/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Preview" }).click();
+  const panel = page.getByLabel("Preview");
+  await expect(panel.getByText("Preview on the live page")).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByAltText("Preview of step 4")).toBeVisible();
+  await expect(panel.locator(".tag.found").first()).toBeVisible();
+  // Still unapproved, still no runs.
+  await expect(page.getByText("Approval required.")).toBeVisible();
   expect(await db.run.count({ where: { workflowId: id } })).toBe(0);
 });

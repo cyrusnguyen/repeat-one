@@ -34,7 +34,7 @@ pnpm build
 pnpm test:e2e    # real app on :3100, real Chromium; needs `pnpm build` first
 ```
 
-E2E tests that need a live model (`planning.spec.ts`, the live recovery test) skip themselves when `ANTHROPIC_API_KEY` is not set in `.env`.
+The default E2E run never calls Opus: the test server gets an empty key, so it is free and deterministic. To also run the live-model tests (`planning.spec.ts`, the live recovery test), set `E2E_LIVE=1` with a key in `.env`; this spends a small amount on model calls. App server output goes to `data/e2e-server.log`.
 
 ## Architecture
 
@@ -82,7 +82,7 @@ Security notes:
 
 Before you start: `.env` has a key, the app runs on `http://localhost:3000`, and the top bar shows **Demo portal UI: Classic**.
 
-1. **(0:00) Plan.** Click **New**, then **Use demo example** (task "Export unpaid invoices above a minimum amount to CSV", input `minimumAmount` = 1000). Click **Inspect page & propose plan**. Opus loads the real portal and proposes steps. Point out the "What Opus looked at" trace, the steps, and **Success means** (the assertions).
+1. **(0:00) Plan.** Click **New**, then **Use demo example** (task "Export unpaid invoices above a minimum amount to CSV", input `minimumAmount` = 1000). Click **Inspect page & propose plan**. Opus loads the real portal and proposes steps. Point out the "What Opus looked at" trace, the steps, and **Success means** (the assertions). Click **Preview** to see each step's target highlighted on the live page; it is read-only, so nothing runs before approval.
 2. **(0:30) Approve and run.** Click **Approve plan**, then **Run workflow** with 1000. Watch the timeline fill in. The run succeeds with every check passing, a screenshot, and a 9-row CSV. Click **Download CSV**.
 3. **(0:55) Break the UI.** In the top bar switch **Demo portal UI** to **Redesigned**. Open the portal in a tab to show the amount field and button were renamed and restructured.
 4. **(1:05) Replay with recovery.** Back on the workflow, set `minimumAmount` to 3000 and click **Run again**. Step 4 fails for real ("Element not found: #min-amount", with a failure screenshot). The status goes to **recovering**. Opus proposes `#amount-floor` and the engine auto-applies it (read-only fill). Step 5 fails next. Opus proposes `#refresh-results`, and because it is a click the run pauses in **needs approval**. Show before/after selectors, rationale, engine checks and policy reason, then click **Approve repair**.

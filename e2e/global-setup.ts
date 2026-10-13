@@ -1,5 +1,5 @@
 import { execSync, spawn, spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { openSync, rmSync } from "node:fs";
 import path from "node:path";
 
 const PORT = 3100;
@@ -10,10 +10,10 @@ export default async function globalSetup() {
   rmSync("data/e2e.db", { force: true });
   execSync("npx --no-install prisma db push --skip-generate", { stdio: "ignore", env: process.env });
 
-  const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
-    env: { ...process.env, RUN_TIMEOUT_MS: "60000" },
-    stdio: "ignore",
-  });
+  // Live model calls are opt-in (E2E_LIVE=1). Otherwise the app gets an empty key, so default runs are free and deterministic.
+  const env = { ...process.env, RUN_TIMEOUT_MS: "60000", ...(process.env.E2E_LIVE === "1" ? {} : { ANTHROPIC_API_KEY: "" }) };
+  const log = openSync("data/e2e-server.log", "w");
+  const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], { env, stdio: ["ignore", log, log] });
   const deadline = Date.now() + 60_000;
   while (true) {
     if (server.exitCode !== null) throw new Error(`App server exited early (code ${server.exitCode}). Is port ${PORT} free? Did you run pnpm build?`);
