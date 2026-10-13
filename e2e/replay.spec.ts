@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { parseCsv } from "../src/lib/checks";
-import { canonicalSteps, db, expectedUnpaid, seedWorkflow } from "./helpers";
+import { canonicalSteps, db, expectedUnpaid, seedWorkflow, setVariant } from "./helpers";
+
+test.beforeEach(async ({ request }) => setVariant(request, "classic"));
 
 async function runAndWait(page: Page, button: RegExp, amount: string) {
   await page.locator('input[name="minimumAmount"]').fill(amount);
@@ -30,14 +32,15 @@ test("approve, run, verify CSV, reload, replay with a new threshold, keep both r
   const firstRunUrl = page.url();
 
   // Evidence: a real screenshot rendered from the run.
-  const shot = page.getByAltText("Screenshot after step 8");
+  const shot = page.getByAltText("Screenshot after step 9");
   await expect(shot).toBeVisible();
   expect(await shot.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(100);
 
   // Reload the app, return to the saved workflow, change the input, replay.
   await page.reload();
   await expect(page.getByText(/All steps completed/)).toBeVisible();
-  await page.getByRole("link", { name: /Unpaid invoices export/ }).first().click();
+  await page.getByRole("link", { name: "← Unpaid invoices export" }).click();
+  await page.waitForURL(`**/workflows/${id}`);
   await page.reload();
   await expect(page.getByRole("button", { name: /Run again/ })).toBeEnabled();
   await expect(page.locator('input[name="minimumAmount"]')).toHaveValue("1000");

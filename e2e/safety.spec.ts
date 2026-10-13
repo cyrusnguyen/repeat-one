@@ -1,8 +1,10 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import type { Step } from "../src/lib/schemas";
-import { canonicalSteps, db, DEMO, seedWorkflow } from "./helpers";
+import { canonicalSteps, db, DEMO, seedWorkflow, setVariant } from "./helpers";
 
 const verify: Step = { action: "assert", check: { type: "rowCount", source: "table", min: 1 }, description: "Has rows" };
+
+test.beforeEach(async ({ request }) => setVariant(request, "classic"));
 
 async function runToEnd(request: APIRequestContext, steps: Step[]) {
   const id = await seedWorkflow("Safety case", steps, "approved");
@@ -50,9 +52,11 @@ test("destructive actions are refused before they happen", async ({ request }) =
 test("a changed page fails with an explanation and offers re-plan", async ({ page, request }) => {
   const { runId, run } = await runToEnd(request, [{ action: "navigate", url: DEMO, description: "Open" }, { action: "click", selector: "#renamed-button", description: "Old button" }, verify]);
   expect(run.status).toBe("failed");
-  expect(run.error).toMatch(/Step 2 \(click #renamed-button\) failed: Element not found/);
+  // The real locator failure is recorded first; recovery then stops truthfully (no key: model unavailable; with key: no safe repair).
+  expect(run.log[1].failures[0].error).toMatch(/Element not found: #renamed-button/);
+  expect(run.error).toMatch(/Recovery (could not run|stopped safely|proposal rejected)/);
   await page.goto(`/runs/${runId}`);
-  await expect(page.getByRole("alert")).toContainText("Element not found");
+  await expect(page.getByText("attempt 1 failed: Element not found: #renamed-button")).toBeVisible();
   await expect(page.getByRole("link", { name: /Review \/ re-plan/ })).toBeVisible();
   await expect(page.getByAltText("Final page state")).toBeVisible();
 });
@@ -90,9 +94,9 @@ test("create form rejects bad input with actionable messages and plans nothing",
   ] as const) {
     await page.getByLabel("Starting URL").fill(url);
     await page.getByRole("button", { name: /Inspect page/ }).click();
-    await expect(page.getByRole("alert")).toContainText(message);
+    await expect(page.locator(".callout[role=alert]")).toContainText(message);
   }
   await page.getByLabel("What should happen?").fill("");
   await page.getByRole("button", { name: /Inspect page/ }).click();
-  await expect(page.getByRole("alert")).toContainText("Describe the task");
+  await expect(page.locator(".callout[role=alert]")).toContainText("Describe the task");
 });

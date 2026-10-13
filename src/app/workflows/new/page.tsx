@@ -8,7 +8,7 @@ import { api, notifyWorkflowsChanged } from "@/lib/client";
 type InputRow = { name: string; label: string; type: "number" | "text"; default: string };
 type Config = { prefixes: string[]; demoUrl: string; hasApiKey: boolean; limits: { maxModelCalls: number; maxPlanCostUsd: number } };
 
-const DEMO_TASK = "Find unpaid invoices, filter by a minimum amount, and export the matching rows as CSV.";
+const DEMO_TASK = "Export unpaid invoices above a minimum amount to CSV.";
 
 export default function NewWorkflow() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function NewWorkflow() {
   const [startUrl, setStartUrl] = useState("");
   const [task, setTask] = useState("");
   const [inputs, setInputs] = useState<InputRow[]>([]);
+  const [recoveryPolicy, setRecoveryPolicy] = useState<"auto_safe" | "ask">("auto_safe");
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function NewWorkflow() {
     if (!task.trim()) return setError("Describe the task you want automated.");
     setBusy(true);
     try {
-      const { id } = await api<{ id: string }>("/api/workflows", { body: { name, startUrl, task, inputs } });
+      const { id } = await api<{ id: string }>("/api/workflows", { body: { name, startUrl, task, inputs, recoveryPolicy } });
       notifyWorkflowsChanged();
       router.push(`/workflows/${id}`);
     } catch (err) {
@@ -78,6 +79,12 @@ export default function NewWorkflow() {
           </label>
           <label className="field">What should happen?
             <textarea value={task} onChange={(e) => setTask(e.target.value)} placeholder={DEMO_TASK} disabled={busy} maxLength={2000} />
+          </label>
+          <label className="field">When the page changes and a step&apos;s target is missing
+            <select value={recoveryPolicy} onChange={(e) => setRecoveryPolicy(e.target.value as "auto_safe" | "ask")} disabled={busy}>
+              <option value="auto_safe">Let Opus repair read-only steps automatically; ask me before repairing clicks</option>
+              <option value="ask">Always ask me before applying a repair</option>
+            </select>
           </label>
         </div>
 

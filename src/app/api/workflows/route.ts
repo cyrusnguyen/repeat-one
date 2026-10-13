@@ -43,6 +43,7 @@ export const POST = handle(async (req: Request) => {
       steps: JSON.stringify(planned.proposal.steps),
       planNotes: planned.proposal.notes,
       planMeta: JSON.stringify(planned.meta),
+      recoveryPolicy: body.recoveryPolicy,
       status: "needs_approval",
     },
   });

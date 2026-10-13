@@ -7,7 +7,7 @@ import { expectedUnpaid } from "./helpers";
 // Live Opus planning. Runs only when the server has a key (the app reads .env itself).
 function envHasKey() {
   try {
-    return /^ANTHROPIC_API_KEY=\s*\S+/m.test(readFileSync(".env", "utf8"));
+    return /^ANTHROPIC_API_KEY=[ \t]*\S+/m.test(readFileSync(".env", "utf8"));
   } catch {
     return false;
   }

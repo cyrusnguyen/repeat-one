@@ -26,6 +26,7 @@ export const POST = handle(async (_req: Request, { params }: Ctx<{ id: string }>
       planNotes: planned.proposal.notes,
       planMeta: JSON.stringify(planned.meta),
       allowedPrefixes: JSON.stringify(prefixes),
+      version: { increment: 1 },
       status: "needs_approval",
     },
   });

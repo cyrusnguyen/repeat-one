@@ -55,6 +55,7 @@ export const CreateWorkflow = z.object({
   startUrl: z.string().trim().min(1, "Enter a starting URL"),
   task: z.string().trim().min(10, "Describe the task in at least a sentence").max(2000),
   inputs: z.array(InputDef).max(10),
+  recoveryPolicy: z.enum(["auto_safe", "ask"]).default("auto_safe"),
 });
 
 /** Replace {{name}} with input values; unknown names are an error so a typo never runs silently. */

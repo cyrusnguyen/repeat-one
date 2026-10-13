@@ -6,12 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, Loader2, Pencil, Play, RefreshCw, ShieldCheck, Trash2, X } from "lucide-react";
 import { api, duration, notifyWorkflowsChanged, when } from "@/lib/client";
 import { StatusTag } from "@/components/StatusTag";
+import { isActive } from "@/lib/state";
 import { stepTarget, type InputDef, type Step } from "@/lib/schemas";
 import type { PlanMeta } from "@/lib/planner";
 
 type RunRow = { id: string; status: string; createdAt: string; startedAt: string | null; finishedAt: string | null; error: string | null; inputs: Record<string, string> };
 type Data = {
-  workflow: { id: string; name: string; task: string; startUrl: string; status: string; allowedPrefixes: string[]; inputs: InputDef[]; steps: Step[]; planNotes: string; planMeta: Partial<PlanMeta>; updatedAt: string };
+  workflow: { id: string; name: string; task: string; startUrl: string; status: string; version: number; recoveryPolicy: "auto_safe" | "ask"; allowedPrefixes: string[]; inputs: InputDef[]; steps: Step[]; planNotes: string; planMeta: Partial<PlanMeta>; updatedAt: string };
   definitionError: string | null;
   runs: RunRow[];
 };
@@ -29,7 +30,7 @@ export default function WorkflowDetail() {
   useEffect(() => { void load(); }, [load]);
 
 
-  const activeRun = data?.runs.find((r) => r.status === "queued" || r.status === "running");
+  const activeRun = data?.runs.find((r) => isActive(r.status));
   useEffect(() => {
     if (!activeRun) return;
     const t = setInterval(load, 1500);
@@ -83,6 +84,7 @@ export default function WorkflowDetail() {
           {renaming === null ? (
             <div className="row">
               <h1>{wf.name}</h1>
+              <span className="hint mono">v{wf.version}</span>
               <StatusTag status={wf.status} />
               <button className="btn ghost" aria-label="Rename workflow" onClick={() => setRenaming(wf.name)}><Pencil aria-hidden /></button>
             </div>
@@ -130,10 +132,26 @@ export default function WorkflowDetail() {
             <dt>Start URL</dt><dd className="mono">{wf.startUrl}</dd>
             <dt>Permitted</dt><dd className="mono">{wf.allowedPrefixes.join(", ")}</dd>
             <dt>Inputs</dt><dd>{wf.inputs.length ? wf.inputs.map((i) => <span key={i.name} className="mono">{`{{${i.name}}}`} <span className="muted">{i.label} ({i.type})</span>{" "}</span>) : <span className="muted">none</span>}</dd>
+            <dt>Recovery</dt>
+            <dd>
+              <select aria-label="Recovery policy" value={wf.recoveryPolicy} disabled={!!busy || !!activeRun} style={{ width: "auto" }}
+                onChange={(e) => act("policy", () => api(`/api/workflows/${id}`, { method: "PATCH", body: { recoveryPolicy: e.target.value } }))}>
+                <option value="auto_safe">Auto-repair read-only steps, ask before click repairs</option>
+                <option value="ask">Always ask before applying a repair</option>
+              </select>
+            </dd>
             {meta.modelCalls !== undefined && <><dt>Planning</dt><dd>{meta.modelCalls} model calls · {meta.inputTokens?.toLocaleString()} in / {meta.outputTokens?.toLocaleString()} out tokens · ≈ ${meta.estimatedCostUsd?.toFixed(3)} <span className="hint">(estimate from list price)</span></dd></>}
           </dl>
           {wf.planNotes && <p className="muted"><strong>Planner notes:</strong> {wf.planNotes}</p>}
           {!!meta.warnings?.length && <ul className="callout warning" style={{ display: "block", margin: 0, paddingLeft: 28 }}>{meta.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+        </section>
+
+        <section className="card">
+          <h3>Success means</h3>
+          <p className="hint">A run only succeeds if every one of these checks passes on real page and CSV data. Clicks and model claims never count.</p>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {wf.steps.filter((s) => s.action === "assert").map((s, i) => <li key={i}>{s.description} <span className="mono muted">({stepTarget(s)})</span></li>)}
+          </ul>
         </section>
 
         <section className="card">
