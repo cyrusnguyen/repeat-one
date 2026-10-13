@@ -16,6 +16,8 @@ model Workflow {
   allowedPrefixes String
   inputs          String
   steps           String
+  version         Int      @default(1) // bumped on every re-plan; approval applies to the current version
+  recoveryPolicy  String   @default("auto_safe") // auto_safe | ask
   planNotes       String   @default("")
   planMeta        String   @default("{}") // model usage, tool trace, warnings
   status          String   @default("needs_approval") // needs_approval | approved | rejected
@@ -25,16 +27,56 @@ model Workflow {
 }
 
 model Run {
-  id         String    @id @default(cuid())
-  workflowId String
-  workflow   Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  status     String    @default("queued") // queued | running | succeeded | failed | cancelled
-  inputs     String
-  log        String    @default("[]")
-  checks     String    @default("[]")
-  error      String?
-  csvFile    String?
-  createdAt  DateTime  @default(now())
-  startedAt  DateTime?
-  finishedAt DateTime?
+  id              String       @id @default(cuid())
+  workflowId      String
+  workflow        Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowVersion Int
+  definition      String // snapshot of steps, inputs, prefixes and policy this run executed
+  status          String       @default("queued") // see src/lib/state.ts
+  inputs          String
+  log             String       @default("[]")
+  checks          String       @default("[]")
+  usage           String       @default("{}")
+  error           String?
+  csvFile         String?
+  createdAt       DateTime     @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  repairs         Repair[]
+  checkpoints     Checkpoint[]
+}
+
+model Repair {
+  id               String    @id @default(cuid())
+  runId            String
+  run              Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepIndex        Int
+  attempt          Int
+  action           String
+  failedSelector   String
+  error            String
+  failureEvidence  String?
+  proposedSelector String?
+  rationale        String    @default("")
+  confidence       String?
+  validation       String    @default("[]")
+  matched          String?
+  decision         String // auto_approved | pending | approved | rejected | invalid | no_safe_repair | error | expired
+  decisionReason   String    @default("")
+  outcome          String    @default("pending") // pending | verified | failed | not_applied
+  outcomeDetail    String    @default("")
+  usage            String    @default("{}")
+  createdAt        DateTime  @default(now())
+  decidedAt        DateTime?
+}
+
+model Checkpoint {
+  id              String   @id @default(cuid())
+  runId           String
+  run             Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  workflowVersion Int
+  stepIndex       Int
+  state           String // ordered step states + postcondition results at this point
+  evidence        String?
+  createdAt       DateTime @default(now())
 }

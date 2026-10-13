@@ -5,7 +5,7 @@ export const GET = handle(async () => {
   const prefixes = globalPrefixes();
   return {
     prefixes,
-    demoUrl: new URL("invoices.html", prefixes[0]).href,
+    demoUrl: new URL("invoices", prefixes[0]).href,
     hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY),
     limits: {
       maxModelCalls: Number(process.env.MAX_MODEL_CALLS || 12),

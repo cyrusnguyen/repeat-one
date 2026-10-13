@@ -43,12 +43,41 @@ export async function navigate(s: Session, url: string): Promise<string> {
   return `Loaded ${s.page.url()} — "${await s.page.title()}"`;
 }
 
+/** A step's target is missing or ambiguous: the only failure class eligible for AI-guided recovery. */
+export class LocatorError extends Error {}
+
+/** Resolve a selector to exactly one element, or throw LocatorError. Invalid selector syntax is also a LocatorError. */
+export async function single(s: Session, selector: string) {
+  const loc = s.page.locator(selector);
+  const count = await loc.count().catch(() => { throw new LocatorError(`Invalid selector: ${selector}`); });
+  if (count === 0) throw new LocatorError(`Element not found: ${selector}`);
+  if (count > 1) throw new LocatorError(`Selector matched ${count} elements, expected exactly one: ${selector}`);
+  return loc;
+}
+
+export type ElementInfo = { tag: string; type: string | null; id: string; role: string | null; label: string; visible: boolean; options: string[] };
+
+/** Facts about one element, used to validate a proposed repair target. */
+export async function describeElement(s: Session, selector: string): Promise<ElementInfo> {
+  const loc = await single(s, selector);
+  return loc.evaluate((el) => {
+    const h = el as HTMLElement;
+    const label = (el as HTMLInputElement).labels?.[0]?.innerText || el.getAttribute("aria-label") || h.innerText || (el as HTMLInputElement).value || el.getAttribute("placeholder") || "";
+    return {
+      tag: el.tagName.toLowerCase(),
+      type: el.getAttribute("type"),
+      id: el.id,
+      role: el.getAttribute("role"),
+      label: label.replace(/\s+/g, " ").trim().slice(0, 80),
+      visible: !!h.offsetParent || getComputedStyle(h).position === "fixed",
+      options: el instanceof HTMLSelectElement ? Array.from(el.options).map((o) => o.value) : [],
+    };
+  });
+}
+
 /** Destructive/externally consequential actions are refused before the click happens. */
 async function guardedTarget(s: Session, selector: string) {
-  const loc = s.page.locator(selector);
-  const count = await loc.count();
-  if (count === 0) throw new Error(`Element not found: ${selector}`);
-  if (count > 1) throw new Error(`Selector matched ${count} elements, expected exactly one: ${selector}`);
+  const loc = await single(s, selector);
   const label = await loc.evaluate((el) =>
     [(el as HTMLElement).innerText, (el as HTMLInputElement).value, el.getAttribute("aria-label"), el.getAttribute("title")].filter(Boolean).join(" "),
   );
@@ -65,26 +94,31 @@ export async function click(s: Session, selector: string): Promise<string> {
 }
 
 export async function fill(s: Session, selector: string, value: string): Promise<string> {
-  const loc = s.page.locator(selector);
+  const loc = await single(s, selector);
   if ((await loc.getAttribute("type"))?.toLowerCase() === "password") throw new Error("Blocked: RepeatOne never fills password fields.");
   await loc.fill(value);
   return `Filled ${selector} with "${value}"`;
 }
 
 export async function selectOption(s: Session, selector: string, value: string): Promise<string> {
-  const picked = await s.page.locator(selector).selectOption(value);
+  const picked = await (await single(s, selector)).selectOption(value);
   return `Selected ${picked.join(", ")} in ${selector}`;
 }
 
 export async function waitFor(s: Session, selector: string, text?: string): Promise<string> {
   const loc = text ? s.page.locator(selector).filter({ hasText: text }) : s.page.locator(selector);
-  await loc.first().waitFor({ state: "visible" });
+  try {
+    await loc.first().waitFor({ state: "visible" });
+  } catch (err) {
+    // Distinguish "target gone" (recoverable) from "target present but condition never met" (not recoverable).
+    if ((await s.page.locator(selector).count().catch(() => 0)) === 0) throw new LocatorError(`Element not found: ${selector}`);
+    throw err;
+  }
   return `Visible: ${selector}${text ? ` containing "${text}"` : ""} — "${redact((await loc.first().innerText()).slice(0, 120))}"`;
 }
 
 export async function extractTable(s: Session, selector: string, maxRows = 500): Promise<Table> {
-  const loc = s.page.locator(selector);
-  if ((await loc.count()) !== 1) throw new Error(`Expected exactly one table for ${selector}`);
+  const loc = await single(s, selector);
   return loc.evaluate((el, max) => {
     const text = (c: Element) => (c as HTMLElement).innerText.trim();
     const headerRow = el.querySelector("thead tr") ?? el.querySelector("tr");
