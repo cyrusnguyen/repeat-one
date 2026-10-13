@@ -56,7 +56,8 @@ export function runStages(r: RunView, version: number): Stage[] {
 
   const verify: Stage = { key: "verify", label: "Verify", caption: "pending", state: "pending" };
   if (r.status === "succeeded") Object.assign(verify, { state: "verified", caption: `${passed}/${r.checks.length} passed` });
-  else if (r.status === "failed") Object.assign(verify, { state: "broken", caption: r.checks.length ? `${passed}/${r.checks.length} passed` : "not reached" });
+  // A stop before the end is "not reached" unless a check itself failed.
+  else if (r.status === "failed") Object.assign(verify, { state: "broken", caption: passed < r.checks.length ? `${passed}/${r.checks.length} passed` : "not reached" });
   else if (r.status === "cancelled") Object.assign(verify, { state: "none", caption: "cancelled" });
 
   return [

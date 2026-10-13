@@ -55,6 +55,14 @@ describe("runStages", () => {
     expect(stage(r, "repair")).toMatchObject({ state: "active", caption: "waiting for you" });
     expect(stage(r, "verify")).toMatchObject({ state: "pending" });
   });
+  it("a stopped run whose earlier checks passed says verify was not reached, not 5/5 passed", () => {
+    const r = base({ status: "failed", checks: [{ step: 2, description: "c", passed: true, detail: "" }], log: [step(0, "failed", { failures: [{ attempt: 1, error: "x" }] })] });
+    expect(stage(r, "verify")).toMatchObject({ state: "broken", caption: "not reached" });
+  });
+  it("a failed check is reported with the count", () => {
+    const r = base({ status: "failed", checks: [{ step: 2, description: "a", passed: true, detail: "" }, { step: 3, description: "b", passed: false, detail: "" }] });
+    expect(stage(r, "verify")).toMatchObject({ state: "broken", caption: "1/2 passed" });
+  });
   it("in progress: verify pending, run active", () => {
     const r = base({ status: "running", log: [step(0, "ok"), step(1, "running")] });
     expect(stage(r, "run")).toMatchObject({ state: "active", caption: "1 of 2 steps" });

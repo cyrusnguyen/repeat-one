@@ -35,6 +35,7 @@ export default function WorkflowDetail() {
   const [preview, setPreview] = useState<PreviewItem[] | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [allSteps, setAllSteps] = useState(false);
+  const [allChecks, setAllChecks] = useState(false);
 
   const load = useCallback(() => api<Data>(`/api/workflows/${id}`).then((d) => { setData(d); setError(null); }, (e: Error) => setError(e.message)), [id]);
   useEffect(() => { void load(); }, [load]);
@@ -188,9 +189,14 @@ export default function WorkflowDetail() {
           <section className="card">
             <h2 className="eyebrow">Success means</h2>
             <p className="hint" style={{ margin: "4px 0 10px" }}>A run succeeds only if all of these pass on real page and CSV data.</p>
-            <ul className="stack" style={{ gap: 6, margin: 0, paddingLeft: 18 }}>
-              {checks.map((s, i) => <li key={i}>{s.description} <span className="mono muted">({stepTarget(s)})</span></li>)}
+            <ul className="stack" style={{ gap: 8, margin: 0, paddingLeft: 18 }}>
+              {(allChecks ? checks : checks.slice(0, 3)).map((s, i) => (
+                <li key={i}>{s.description}<div className="mono muted" style={{ fontSize: 11.5 }}>{stepTarget(s)}</div></li>
+              ))}
             </ul>
+            {checks.length > 3 && (
+              <button className="btn quiet" style={{ marginTop: 6 }} onClick={() => setAllChecks((v) => !v)}>{allChecks ? "Show fewer" : `+ ${checks.length - 3} more checks`}</button>
+            )}
           </section>
           <section className="card stack" style={{ gap: 10 }}>
             <h2 className="eyebrow">Inputs & safety</h2>
